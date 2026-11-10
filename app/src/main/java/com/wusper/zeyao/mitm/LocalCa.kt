@@ -1,6 +1,9 @@
 package com.wusper.zeyao.mitm
 
+import android.content.ContentValues
 import android.content.Context
+import android.os.Environment
+import android.provider.MediaStore
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -41,6 +44,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 object LocalCa {
     const val COMMON_NAME = "擇要 CA"
+    const val DOWNLOAD_NAME = "擇要CA.crt"
     const val FILE_PROVIDER = "com.wusper.zeyao.files"
 
     @Volatile private var ready = false
@@ -144,6 +148,54 @@ object LocalCa {
             putExtra(Intent.EXTRA_SUBJECT, COMMON_NAME)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
+    }
+
+    data class ExportedCrt(val uri: Uri, val displayPath: String)
+
+    /**
+     * Writes 擇要CA.crt into the public Downloads folder so the user can
+     * pick it when installing a CA certificate.
+     */
+    fun exportToDownloads(context: Context): ExportedCrt {
+        ensure(context)
+        val pem = pem().toByteArray(Charsets.UTF_8)
+        val app = context.applicationContext
+        if (Build.VERSION.SDK_INT >= 29) {
+            val resolver = app.contentResolver
+            val existing = resolver.query(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                arrayOf(MediaStore.Downloads._ID),
+                "${MediaStore.Downloads.DISPLAY_NAME}=?",
+                arrayOf(DOWNLOAD_NAME),
+                null,
+            )
+            existing?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val id = cursor.getLong(0)
+                    val uri = Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id.toString())
+                    resolver.delete(uri, null, null)
+                }
+            }
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, DOWNLOAD_NAME)
+                put(MediaStore.Downloads.MIME_TYPE, "application/x-x509-ca-cert")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: error("無法寫入下載資料夾")
+            resolver.openOutputStream(uri)?.use { it.write(pem) }
+                ?: error("無法寫入下載資料夾")
+            values.clear()
+            values.put(MediaStore.Downloads.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+            return ExportedCrt(uri, "下載 / $DOWNLOAD_NAME")
+        }
+        val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        dir.mkdirs()
+        val file = java.io.File(dir, DOWNLOAD_NAME)
+        file.writeBytes(pem)
+        return ExportedCrt(Uri.fromFile(file), file.absolutePath)
     }
 
     fun issueLeaf(host: String): Pair<X509Certificate, PrivateKey> {

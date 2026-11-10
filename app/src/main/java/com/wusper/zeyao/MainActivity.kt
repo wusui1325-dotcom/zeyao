@@ -1,7 +1,9 @@
 package com.wusper.zeyao
 
 import android.Manifest
+import android.app.AlertDialog
 import android.content.Intent
+import android.widget.Toast
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -265,10 +267,24 @@ class MainActivity : ComponentActivity() {
 
     private fun installZeyaoCa() {
         LocalCa.ensure(this)
-        runCatching {
-            startActivity(Intent.createChooser(LocalCa.shareCrtIntent(this), "匯出擇要憑證"))
+        val exported = runCatching { LocalCa.exportToDownloads(this) }.getOrElse { e ->
+            Toast.makeText(this, e.message ?: "無法寫入下載資料夾", Toast.LENGTH_LONG).show()
+            return
         }
-        runCatching { startActivity(LocalCa.installIntent(this)) }
+        if (Build.VERSION.SDK_INT < 30) {
+            runCatching { startActivity(LocalCa.installIntent(this)) }
+            Toast.makeText(this, "憑證已存到${exported.displayPath}", Toast.LENGTH_LONG).show()
+            return
+        }
+        val message = "檔案在「" + exported.displayPath + "」。\n\n請到「設定 → 安全性 → 加密與憑證 → 安裝憑證 → CA 憑證」，選這個檔。"
+        AlertDialog.Builder(this)
+            .setTitle("已存到下載資料夾")
+            .setMessage(message)
+            .setPositiveButton("前往安裝") { _, _ ->
+                runCatching { startActivity(LocalCa.installIntent(this)) }
+            }
+            .setNegativeButton("先不用", null)
+            .show()
     }
 
     private enum class Route { MAIN, SETTINGS, OTHER, RECORD, RECONFIGURE }
