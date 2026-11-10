@@ -73,6 +73,9 @@ fun SettingsScreen(
     browsers: List<Pair<String, String>>,
     isDefaultBrowser: Boolean,
     onRequestDefaultBrowser: () -> Unit,
+    caInstalled: Boolean,
+    onToggleHttpsDecrypt: (Boolean) -> Unit,
+    onInstallCa: () -> Unit,
 ) {
     var pickingApps by remember { mutableStateOf(false) }
     var pickingStart by remember { mutableStateOf(false) }
@@ -159,6 +162,27 @@ fun SettingsScreen(
                 okText = "已開啟，只讀取瀏覽器網址列",
                 badText = "未開啟，點此前往系統設定",
                 onClick = onOpenAccessibilitySettings,
+            )
+
+
+            Spacer(Modifier.height(8.dp))
+            SectionLabel("HTTPS 解密")
+            SettingSwitch(
+                title = "解密 HTTPS",
+                subtitle = if (caInstalled) {
+                    "已安裝擇要憑證。開啟後，本機 VPN 會在這部裝置上解開 HTTPS，才能讀到完整文章路徑與頁面正文。系統可能顯示連線警告；部分只信任系統憑證的 App 或網站會連不上。此開關預設關閉。"
+                } else {
+                    "須先安裝擇要憑證才會生效。Android 11 以後請到「設定 → 安全性 → 加密與憑證 → 安裝憑證 → CA 憑證」，選擇「擇要 CA」。開啟後才能讀到完整路徑；部分網站或 App 可能因此無法連線。"
+                },
+                checked = settings.httpsDecryptEnabled,
+                onChecked = onToggleHttpsDecrypt,
+            )
+            PermissionLine(
+                title = "擇要憑證",
+                ok = caInstalled,
+                okText = "已安裝為使用者憑證。點此可再匯出或重新安裝。",
+                badText = "未安裝。點此匯出「擇要 CA.crt」並前往系統設定安裝。",
+                onClick = onInstallCa,
             )
 
             Spacer(Modifier.height(8.dp))

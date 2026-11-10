@@ -41,6 +41,7 @@ class SettingsRepository(private val context: Context) {
             prefs[ENTER_POS] = next.enterButtonPosition.name
             prefs[CONTINUE] = next.continueOnExit
             prefs[HANDOFF] = next.handoffBrowserPackage
+            prefs[HTTPS_DECRYPT] = next.httpsDecryptEnabled
         }
     }
 
@@ -48,6 +49,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setProvider(id: String) = update { it.copy(providerId = id) }
     suspend fun setInterceptEnabled(value: Boolean) = update { it.copy(interceptEnabled = value) }
     suspend fun setPersistentEnabled(value: Boolean) = update { it.copy(persistentEnabled = value) }
+    suspend fun setHttpsDecryptEnabled(value: Boolean) = update { it.copy(httpsDecryptEnabled = value) }
 
     /**
      * Whether intercept should fire right now, given stored settings.
@@ -94,6 +96,7 @@ class SettingsRepository(private val context: Context) {
         }.getOrDefault(EnterButtonPosition.ENTER_RIGHT),
         continueOnExit = this[CONTINUE] ?: true,
         handoffBrowserPackage = this[HANDOFF].orEmpty(),
+        httpsDecryptEnabled = this[HTTPS_DECRYPT] ?: false,
     )
 
     private companion object {
@@ -112,5 +115,6 @@ class SettingsRepository(private val context: Context) {
         val ENTER_POS = stringPreferencesKey("enter_pos")
         val CONTINUE = booleanPreferencesKey("continue_on_exit")
         val HANDOFF = stringPreferencesKey("handoff_browser")
+        val HTTPS_DECRYPT = booleanPreferencesKey("https_decrypt")
     }
 }

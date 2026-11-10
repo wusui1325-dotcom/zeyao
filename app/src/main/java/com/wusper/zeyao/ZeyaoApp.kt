@@ -7,6 +7,7 @@ import com.wusper.zeyao.data.RecordRepository
 import com.wusper.zeyao.data.SecretStore
 import com.wusper.zeyao.data.SettingsRepository
 import com.wusper.zeyao.intercept.InterceptController
+import com.wusper.zeyao.mitm.LocalCa
 
 class ZeyaoApp : Application() {
     lateinit var settings: SettingsRepository
@@ -22,6 +23,7 @@ class ZeyaoApp : Application() {
         settings = SettingsRepository(this)
         secrets = SecretStore(this)
         records = RecordRepository(this)
+        runCatching { LocalCa.ensure(this) }
         InterceptController.attach(this)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityResumed(activity: Activity) {

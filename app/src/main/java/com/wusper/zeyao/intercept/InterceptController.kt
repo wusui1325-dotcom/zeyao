@@ -17,6 +17,9 @@ import com.wusper.zeyao.data.BrowserHandoff
 import com.wusper.zeyao.data.NewsHosts
 import com.wusper.zeyao.data.RecordStatus
 import com.wusper.zeyao.extract.ArticleFetcher
+import com.wusper.zeyao.mitm.LocalCa
+import com.wusper.zeyao.mitm.PageCapture
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
@@ -83,14 +86,36 @@ object InterceptController {
     var interceptArmedCached: Boolean = false
         private set
 
+    @Volatile
+    var httpsDecryptCached: Boolean = false
+        private set
+
+    @Volatile
+    var caInstalledCached: Boolean = false
+        private set
+
     fun attach(application: ZeyaoApp) {
         app = application
+        runCatching { LocalCa.ensure(application) }
+        refreshCaInstalled()
         scope.launch {
             app.settings.settings.collect { settings ->
                 interceptArmedCached = app.settings.isInterceptArmed(settings)
+                httpsDecryptCached = settings.httpsDecryptEnabled
+                refreshCaInstalled()
             }
         }
     }
+
+    fun refreshCaInstalled() {
+        if (!::app.isInitialized) return
+        caInstalledCached = runCatching {
+            LocalCa.ensure(app)
+            LocalCa.isInstalled(app)
+        }.getOrDefault(false)
+    }
+
+    fun isHttpsDecryptActive(): Boolean = httpsDecryptCached && caInstalledCached
 
     fun sessionFlow(id: String): StateFlow<InterceptSession?> {
         val flow = MutableStateFlow(_sessions.value[id])
@@ -151,6 +176,43 @@ object InterceptController {
         val key = NewsHosts.canonicalUrl(url)
         NewsClassifier.remember(key, false)
         urlCooldownUntil[key] = SystemClock.elapsedRealtime() + NOT_NEWS_COOLDOWN_MS
+        releaseDocumentHolds(url)
+    }
+
+    fun releaseDocumentHolds(url: String) {
+        if (url.isBlank()) return
+        val host = NewsHosts.hostOf(url)
+        if (host.isNotBlank()) releaseHolds(host)
+        releaseHolds("url:" + NewsHosts.canonicalUrl(url))
+    }
+
+    fun rejectDocumentHolds(url: String) {
+        if (url.isBlank()) return
+        val host = NewsHosts.hostOf(url)
+        if (host.isNotBlank()) rejectHolds(host)
+        rejectHolds("url:" + NewsHosts.canonicalUrl(url))
+    }
+
+    /**
+     * Exact URL recovered from optional HTTPS decryption. Hold the origin
+     * response until verify / 進入 / 返回 decides.
+     */
+    fun onDecryptedDocument(url: String, connection: HeldConnection): Boolean {
+        val wrapped = IdempotentHold(connection)
+        val clean = sanitizeUrl(url)
+        if (clean == null || appUiVisible || isUrlCooled(clean)) {
+            wrapped.release()
+            return false
+        }
+        val host = NewsHosts.hostOf(clean).lowercase()
+        if (host.isNotBlank() && isHostPassthrough(host)) {
+            wrapped.release()
+            return false
+        }
+        if (host.isNotBlank()) holds.getOrPut(host) { mutableListOf() }.add(wrapped)
+        holds.getOrPut("url:" + NewsHosts.canonicalUrl(clean)) { mutableListOf() }.add(wrapped)
+        beginVerify(clean, title = "", packageName = null, startFrom = null, handoffIfNotNews = false)
+        return true
     }
 
     /**
@@ -331,7 +393,19 @@ object InterceptController {
                 fail(id, "尚未取得文章網址，仍可進入或返回")
                 return@launch
             }
-            val fetched = runCatching { ArticleFetcher.fetch(workingUrl) }
+            var captured = PageCapture.get(workingUrl)
+            if (captured == null && isHttpsDecryptActive()) {
+                val waitUntil = SystemClock.elapsedRealtime() + 2_500
+                while (captured == null && SystemClock.elapsedRealtime() < waitUntil) {
+                    delay(80)
+                    captured = PageCapture.get(workingUrl)
+                }
+            }
+            val fetched = if (captured != null) {
+                Result.success(ArticleFetcher.parse(workingUrl, captured))
+            } else {
+                runCatching { ArticleFetcher.fetch(workingUrl) }
+            }
             val article = fetched.getOrNull()
             if (article != null) {
                 workingTitle = article.title.ifBlank { workingTitle }
@@ -494,6 +568,16 @@ object InterceptController {
     }
 
     private fun normalizeUrl(url: String): String = NewsHosts.canonicalUrl(url)
+}
+
+private class IdempotentHold(private val inner: HeldConnection) : HeldConnection {
+    private val done = AtomicBoolean(false)
+    override fun release() {
+        if (done.compareAndSet(false, true)) runCatching { inner.release() }
+    }
+    override fun reject() {
+        if (done.compareAndSet(false, true)) runCatching { inner.reject() }
+    }
 }
 
 interface HeldConnection {

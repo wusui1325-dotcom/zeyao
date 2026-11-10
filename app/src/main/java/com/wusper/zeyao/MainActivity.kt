@@ -1,6 +1,7 @@
 package com.wusper.zeyao
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -24,6 +25,7 @@ import com.wusper.zeyao.data.BrowserHandoff
 import com.wusper.zeyao.data.SummaryRecord
 import com.wusper.zeyao.intercept.InterceptController
 import com.wusper.zeyao.intercept.VpnController
+import com.wusper.zeyao.mitm.LocalCa
 import com.wusper.zeyao.ui.main.MainScreen
 import com.wusper.zeyao.ui.main.RecordDetailScreen
 import com.wusper.zeyao.ui.onboarding.OnboardingRoute
@@ -67,6 +69,7 @@ class MainActivity : ComponentActivity() {
             var vpnReady by remember { mutableStateOf(SystemChecks.isVpnPrepared(this@MainActivity)) }
             var accessibilityOn by remember { mutableStateOf(SystemChecks.isAccessibilityEnabled(this@MainActivity)) }
             var isDefaultBrowser by remember { mutableStateOf(BrowserHandoff.isZeyaoDefaultBrowser(this@MainActivity)) }
+            var caInstalled by remember { mutableStateOf(false) }
             var resumeTick by remember { mutableStateOf(0) }
 
             LaunchedEffect(route) {
@@ -74,6 +77,12 @@ class MainActivity : ComponentActivity() {
                     apps = withContext(Dispatchers.IO) { SystemChecks.listLaunchableApps(this@MainActivity) }
                     browsers = withContext(Dispatchers.IO) { BrowserHandoff.listBrowsers(this@MainActivity) }
                     isDefaultBrowser = BrowserHandoff.isZeyaoDefaultBrowser(this@MainActivity)
+                    caInstalled = withContext(Dispatchers.IO) {
+                        LocalCa.ensure(this@MainActivity)
+                        val ok = LocalCa.isInstalled(this@MainActivity)
+                        InterceptController.refreshCaInstalled()
+                        ok
+                    }
                 }
             }
 
@@ -84,6 +93,8 @@ class MainActivity : ComponentActivity() {
                             vpnReady = SystemChecks.isVpnPrepared(this@MainActivity)
                             accessibilityOn = SystemChecks.isAccessibilityEnabled(this@MainActivity)
                             isDefaultBrowser = BrowserHandoff.isZeyaoDefaultBrowser(this@MainActivity)
+                            caInstalled = runCatching { LocalCa.isInstalled(this@MainActivity) }.getOrDefault(false)
+                            InterceptController.refreshCaInstalled()
                             resumeTick++
                         }
                     }
@@ -140,6 +151,11 @@ class MainActivity : ComponentActivity() {
                                 onRequestDefaultBrowser = {
                                     startActivity(BrowserHandoff.requestDefaultBrowserIntent(this@MainActivity))
                                 },
+                                caInstalled = caInstalled,
+                                onToggleHttpsDecrypt = { enabled ->
+                                    scope.launch { handleHttpsDecryptToggle(enabled) }
+                                },
+                                onInstallCa = { installZeyaoCa() },
                             )
                         }
                         route == Route.OTHER -> {
@@ -235,6 +251,24 @@ class MainActivity : ComponentActivity() {
             VpnController.start(this)
             true
         }
+    }
+
+    private suspend fun handleHttpsDecryptToggle(enabled: Boolean) {
+        val app = ZeyaoApp.instance
+        withContext(Dispatchers.IO) { LocalCa.ensure(this@MainActivity) }
+        if (enabled && !LocalCa.isInstalled(this)) {
+            installZeyaoCa()
+        }
+        app.settings.setHttpsDecryptEnabled(enabled)
+        InterceptController.refreshCaInstalled()
+    }
+
+    private fun installZeyaoCa() {
+        LocalCa.ensure(this)
+        runCatching {
+            startActivity(Intent.createChooser(LocalCa.shareCrtIntent(this), "匯出擇要憑證"))
+        }
+        runCatching { startActivity(LocalCa.installIntent(this)) }
     }
 
     private enum class Route { MAIN, SETTINGS, OTHER, RECORD, RECONFIGURE }

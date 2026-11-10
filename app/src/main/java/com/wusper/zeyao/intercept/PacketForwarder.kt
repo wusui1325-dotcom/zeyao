@@ -1,5 +1,11 @@
 package com.wusper.zeyao.intercept
 
+import com.wusper.zeyao.mitm.HttpInspect
+import com.wusper.zeyao.mitm.LocalCa
+import com.wusper.zeyao.mitm.PinnedHosts
+import com.wusper.zeyao.mitm.TlsMitm
+import java.io.ByteArrayOutputStream
+
 import com.wusper.zeyao.data.NewsHosts
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -20,8 +26,8 @@ import kotlin.math.min
 
 /**
  * Userspace IPv4 TCP/UDP forwarder for the local VpnService.
- * HTTPS is never decrypted. News hosts may have their first flight held
- * until the user chooses 進入 or 返回 on the intercept page.
+ * HTTPS is not decrypted unless the user turns on the setting and installs
+ * the 擇要 CA. With decryption on, the exact request URL and HTML can be read.
  */
 class PacketForwarder(
     private val vpn: ZeyaoVpnService,
@@ -321,15 +327,23 @@ class PacketForwarder(
                 buf.flip()
                 val data = ByteArray(buf.remaining())
                 buf.get(data)
-                var offset = 0
-                while (offset < data.size) {
-                    val end = min(data.size, offset + MAX_PAYLOAD)
-                    val chunk = if (offset == 0 && end == data.size) data else data.copyOfRange(offset, end)
-                    injectTcp(pipe, FLAG_PSH or FLAG_ACK, chunk)
-                    pipe.serverSeq = (pipe.serverSeq + chunk.size) and 0xFFFFFFFFL
-                    offset = end
+                if (pipe.mitm != null) {
+                    pipe.mitm?.onOriginTls(data)
+                } else {
+                    injectChunks(pipe, data)
                 }
             }
+        }
+    }
+
+    private fun injectChunks(pipe: TcpPipe, data: ByteArray) {
+        var offset = 0
+        while (offset < data.size) {
+            val end = min(data.size, offset + MAX_PAYLOAD)
+            val chunk = if (offset == 0 && end == data.size) data else data.copyOfRange(offset, end)
+            injectTcp(pipe, FLAG_PSH or FLAG_ACK, chunk)
+            pipe.serverSeq = (pipe.serverSeq + chunk.size) and 0xFFFFFFFFL
+            offset = end
         }
     }
 
@@ -371,6 +385,7 @@ class PacketForwarder(
     }
 
     private fun resetAndDrop(pipe: TcpPipe) {
+        pipe.mitm?.close()
         injectTcp(pipe, FLAG_RST or FLAG_ACK, Empty)
         tcp.remove(pipe.key)
         runCatching { pipe.channel.close() }
@@ -397,10 +412,15 @@ class PacketForwarder(
         @Volatile var sniInspected: Boolean = false
         var holdDeadline: Long = 0
         var sentFin: Boolean = false
+        var mitm: TlsMitm? = null
+        var mitmDeclined: Boolean = false
+        var httpInspect: HttpInspect? = null
+        private var helloBuf: ByteArrayOutputStream? = null
         private val outbound = ArrayDeque<ByteArray>()
         private val holdBuf = ArrayDeque<ByteArray>()
 
         fun onClientData(payload: ByteArray) {
+            if (feedMitm(payload)) return
             if (!sniInspected) {
                 sniInspected = true
                 val host = when (key.dstPort) {
@@ -429,6 +449,82 @@ class PacketForwarder(
             enqueue(payload)
         }
 
+        private fun feedMitm(payload: ByteArray): Boolean {
+            if (key.dstPort != 443) return false
+            if (mitmDeclined) return false
+            mitm?.let {
+                it.onClientTls(payload)
+                return true
+            }
+            if (!InterceptController.isHttpsDecryptActive()) return false
+            val pending = helloBuf
+            val all = if (pending != null) {
+                pending.write(payload)
+                pending.toByteArray()
+            } else {
+                payload
+            }
+            val host = SniParser.parse(all)
+            if (host == null) {
+                if (all.isNotEmpty() && ((all[0].toInt() and 0xFF) != 0x16 || all.size > 8 * 1024)) {
+                    mitmDeclined = true
+                    if (pending != null) {
+                        enqueue(all)
+                        helloBuf = null
+                        return true
+                    }
+                    return false
+                }
+                if (helloBuf == null) {
+                    helloBuf = ByteArrayOutputStream().also { it.write(payload) }
+                }
+                return true
+            }
+            helloBuf = null
+            if (PinnedHosts.shouldSkip(host)) {
+                mitmDeclined = true
+                if (pending != null) enqueue(all)
+                return pending != null
+            }
+            val leaf = try {
+                LocalCa.issueLeaf(host)
+            } catch (_: Exception) {
+                mitmDeclined = true
+                if (pending != null) enqueue(all)
+                return pending != null
+            }
+            val inspect = HttpInspect { url ->
+                InterceptController.onDecryptedDocument(
+                    url,
+                    object : HeldConnection {
+                        override fun release() = post { releaseMitmHold() }
+                        override fun reject() = post { rejectHold() }
+                    },
+                )
+            }
+            httpInspect = inspect
+            val session = TlsMitm(
+                host,
+                leaf.first,
+                leaf.second,
+                LocalCa.certificate(),
+                emitToClient = { bytes -> post { injectChunks(this@TcpPipe, bytes) } },
+                emitToOrigin = { bytes -> post { enqueue(bytes) } },
+                onClientPlain = { inspect.onClientPlain(it) },
+                onServerPlain = { inspect.onServerPlain(it) },
+                onError = { post { resetAndDrop(this@TcpPipe) } },
+            )
+            mitm = session
+            session.start()
+            session.onClientTls(all)
+            return true
+        }
+
+        private fun releaseMitmHold() {
+            val held = httpInspect?.releaseHeld() ?: return
+            if (held.isNotEmpty()) mitm?.sendPlainToClient(held)
+        }
+
         fun onClientFin() {
             if (holding) {
                 holdBuf.addLast(FIN_MARK)
@@ -453,6 +549,7 @@ class PacketForwarder(
         fun rejectHold() {
             holding = false
             holdBuf.clear()
+            mitm?.close()
             resetAndDrop(this)
         }
 

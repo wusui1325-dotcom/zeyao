@@ -21,6 +21,8 @@ data class AppSettings(
     val continueOnExit: Boolean = true,
     /** Package of the real browser used after 進入 or for non-news links. */
     val handoffBrowserPackage: String = "",
+    /** Optional local HTTPS decryption (requires the user-installed 擇要 CA). */
+    val httpsDecryptEnabled: Boolean = false,
 )
 
 enum class ThemeStyle { FOLLOW_SYSTEM, DARK, LIGHT }

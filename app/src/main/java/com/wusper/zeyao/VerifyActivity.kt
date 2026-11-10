@@ -80,9 +80,10 @@ class VerifyActivity : ComponentActivity() {
             val app = ZeyaoApp.instance
             val settings = runCatching { app.settings.current() }.getOrNull()
             handoffPackage = settings?.handoffBrowserPackage
-            val isNews = runCatching {
+            val knownNews = NewsHosts.shouldInterceptUrl(url, loose = true)
+            val outcome = runCatching {
                 val key = settings?.let { app.secrets.getApiKey(it.providerId) }.orEmpty()
-                if (key.isBlank()) return@runCatching false
+                if (key.isBlank()) return@runCatching if (knownNews) true else null
                 val canonical = NewsHosts.canonicalUrl(url)
                 val cached = NewsClassifier.cached(canonical)
                 if (cached != null) return@runCatching cached
@@ -94,37 +95,51 @@ class VerifyActivity : ComponentActivity() {
                 result
             }.getOrElse { e ->
                 if (e is CancellationException) throw e
-                false
+                if (knownNews) true else null
             }
-            if (isNews) {
-                decided = true
-                InterceptController.startOrRefine(
-                    url,
-                    title = title,
-                    packageName = pkg,
-                    startFrom = this@VerifyActivity,
-                )
-                finish()
-                overridePendingTransition(0, 0)
-            } else {
-                InterceptController.markNotNews(url)
-                if (handoffIfNotNews) {
-                    openNormallyAndFinish()
-                } else {
+            when (outcome) {
+                true -> {
                     decided = true
+                    InterceptController.startOrRefine(
+                        url,
+                        title = title,
+                        packageName = pkg,
+                        startFrom = this@VerifyActivity,
+                    )
                     finish()
                     overridePendingTransition(0, 0)
+                }
+                false -> {
+                    InterceptController.markNotNews(url)
+                    if (handoffIfNotNews) {
+                        openNormallyAndFinish(mark = false)
+                    } else {
+                        decided = true
+                        finish()
+                        overridePendingTransition(0, 0)
+                    }
+                }
+                else -> {
+                    // API error / missing key on an unknown site: let through, do not poison the cache.
+                    InterceptController.releaseDocumentHolds(url)
+                    if (handoffIfNotNews) {
+                        openNormallyAndFinish(mark = false)
+                    } else {
+                        decided = true
+                        finish()
+                        overridePendingTransition(0, 0)
+                    }
                 }
             }
         }
     }
 
-    private fun openNormallyAndFinish() {
+    private fun openNormallyAndFinish(mark: Boolean = false) {
         if (decided) return
         decided = true
         job?.cancel()
         val url = NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty())
-        InterceptController.markNotNews(url)
+        if (mark) InterceptController.markNotNews(url) else InterceptController.releaseDocumentHolds(url)
         if (url.isNotBlank()) {
             BrowserHandoff.open(this, url, handoffPackage)
         }
@@ -137,6 +152,6 @@ class VerifyActivity : ComponentActivity() {
         const val EXTRA_TITLE = "title"
         const val EXTRA_PACKAGE = "pkg"
         const val EXTRA_HANDOFF = "handoff"
-        private const val CLASSIFY_TIMEOUT_MS = 8_000L
+        private const val CLASSIFY_TIMEOUT_MS = 12_000L
     }
 }
