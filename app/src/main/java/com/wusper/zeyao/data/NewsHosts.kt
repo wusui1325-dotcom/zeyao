@@ -52,6 +52,12 @@ object NewsHosts {
         // Macau / others in the region
         "exmoo.com", "macaodaily.com", "tdm.com.mo",
         "thepaper.cn", "caixin.com", "zaobao.sg",
+        "news.google.com", "news.google.com.hk", "news.google.com.tw",
+        "sina.com.cn", "news.sina.com.cn", "qq.com", "news.qq.com",
+        "163.com", "news.163.com", "sohu.com", "news.sohu.com",
+        "ifeng.com", "news.ifeng.com", "people.com.cn", "xinhuanet.com",
+        "cctv.com", "news.cctv.com", "chinanews.com", "chinanews.com.cn",
+        "stcn.com", "yicai.com", "cls.cn", "jiemian.com",
     )
 
     private val PREFIXES = listOf("www.", "m.", "amp.", "mobile.", "news.", "edition.", "legacy.")
@@ -134,17 +140,61 @@ object NewsHosts {
     )
 
     /**
-     * Start a 擇要 session only for a real article URL on a listed news host.
-     * Bare homepages, section fronts, assets, and account/search pages are skipped.
+     * Unwrap one or two common redirectors (Google, Facebook, etc.) so the
+     * real article URL can be judged and summarised.
      */
-    fun shouldInterceptUrl(url: String): Boolean {
-        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
+    fun unwrapUrl(url: String): String {
+        var current = url.trim()
+        repeat(3) {
+            val uri = runCatching { Uri.parse(current) }.getOrNull() ?: return current
+            val host = uri.host.orEmpty().lowercase(Locale.ROOT)
+            val path = uri.path.orEmpty().lowercase(Locale.ROOT)
+            val next = when {
+                (host == "google.com" || host.endsWith(".google.com")) &&
+                    (path == "/url" || path == "/url/" || path == "/news/url") ->
+                    uri.getQueryParameter("q") ?: uri.getQueryParameter("url") ?: uri.getQueryParameter("u")
+                host.endsWith("facebook.com") && (path.contains("/l.php") || path == "/l.php") ->
+                    uri.getQueryParameter("u")
+                host.endsWith("instagram.com") && path.contains("/l.php") ->
+                    uri.getQueryParameter("u")
+                host == "href.li" ->
+                    uri.query?.let { q -> if (q.startsWith("http")) q else null }
+                else -> null
+            }
+            if (next.isNullOrBlank() || next == current) return current
+            current = next
+        }
+        return current
+    }
+
+    /**
+     * Start a 擇要 session only for a URL on a listed news host.
+     * Bare homepages, assets, and account/search pages are skipped.
+     *
+     * [loose] is for the default-browser path: the Intent URI is the page the
+     * user actually asked to open, so any non-home news URL is enough.
+     */
+    fun shouldInterceptUrl(url: String, loose: Boolean = false): Boolean {
+        val resolved = unwrapUrl(url)
+        val uri = runCatching { Uri.parse(resolved) }.getOrNull() ?: return false
         val scheme = uri.scheme?.lowercase(Locale.ROOT)
         if (scheme != "http" && scheme != "https") return false
         val host = uri.host ?: return false
         if (!isNewsHost(host)) return false
-        if (isProbablyAsset(url)) return false
+        if (isProbablyAsset(resolved)) return false
+        if (isSkipPath(uri)) return false
+        if (isBareHostUrl(resolved)) return false
+        if (loose) return true
         return isLikelyArticle(uri)
+    }
+
+    fun isSkipPath(uri: Uri): Boolean {
+        val lower = uri.path.orEmpty().lowercase(Locale.ROOT)
+        if (lower.isEmpty() || lower == "/") return false
+        return SKIP_PATH_PREFIXES.any {
+            val prefix = it.trimEnd('/')
+            lower == prefix || lower.startsWith("$prefix/")
+        }
     }
 
     fun isLikelyArticle(url: String): Boolean {
@@ -153,13 +203,9 @@ object NewsHosts {
     }
 
     fun isLikelyArticle(uri: Uri): Boolean {
+        if (isSkipPath(uri)) return false
         val path = uri.path.orEmpty().trimEnd('/')
         if (path.isEmpty() || path == "/") return false
-        val lower = path.lowercase(Locale.ROOT)
-        if (SKIP_PATH_PREFIXES.any { lower == it || lower.startsWith("$it/") || lower.startsWith(it) && it.endsWith("/") }) {
-            // allow if the skipped prefix is only a short start of a longer article path? keep skip.
-            if (SKIP_PATH_PREFIXES.any { lower == it.trimEnd('/') || lower.startsWith(it.trimEnd('/') + "/") }) return false
-        }
         val segments = path.split('/').filter { it.isNotBlank() }
         if (segments.isEmpty()) return false
         val joined = uri.toString().lowercase(Locale.ROOT)
@@ -180,7 +226,8 @@ object NewsHosts {
     }
 
     fun canonicalUrl(url: String): String {
-        val uri = runCatching { Uri.parse(url.trim()) }.getOrNull() ?: return url.lowercase(Locale.ROOT)
+        val resolved = unwrapUrl(url)
+        val uri = runCatching { Uri.parse(resolved) }.getOrNull() ?: return resolved.lowercase(Locale.ROOT)
         var host = uri.host.orEmpty().lowercase(Locale.ROOT)
         if (host.startsWith("www.")) host = host.removePrefix("www.")
         var path = uri.path.orEmpty().ifEmpty { "/" }

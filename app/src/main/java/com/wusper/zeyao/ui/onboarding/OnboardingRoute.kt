@@ -84,6 +84,7 @@ fun OnboardingRoute(
                     it.copy(
                         onboarded = true,
                         providerId = provider.id,
+                        interceptEnabled = true,
                     )
                 }
                 // Default generation parameters are the app-wide GenerationParams.DEFAULT

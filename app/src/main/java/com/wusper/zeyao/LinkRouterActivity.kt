@@ -9,6 +9,7 @@ import com.wusper.zeyao.intercept.InterceptController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Default-browser entry: news URLs open the 擇要 page; everything else
@@ -26,34 +27,39 @@ class LinkRouterActivity : Activity() {
     }
 
     private fun handle(intent: Intent) {
-        val uri = intent.data
-        val url = uri?.toString().orEmpty()
-        if (url.isBlank()) {
+        val raw = intent.data?.toString().orEmpty()
+        if (raw.isBlank()) {
             startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             finish()
             return
         }
-        CoroutineScope(Dispatchers.Default).launch {
+        // Stay on the main thread after settings load so InterceptActivity
+        // is started from this still-visible activity, not after we finish.
+        CoroutineScope(Dispatchers.Main.immediate).launch {
             val app = application as ZeyaoApp
-            val settings = app.settings.current()
+            val settings = withContext(Dispatchers.IO) { app.settings.current() }
+            val url = NewsHosts.unwrapUrl(raw)
             val armed = app.settings.isInterceptArmed(settings)
-            val news = NewsHosts.shouldInterceptUrl(url)
+            val news = NewsHosts.shouldInterceptUrl(url, loose = true)
             val cooled = InterceptController.isUrlCooled(url)
             if (armed && news && !cooled) {
-                InterceptController.startOrRefine(url, title = "", packageName = callingPackage)
-                runOnUiThread { finish() }
+                InterceptController.startOrRefine(
+                    url,
+                    title = "",
+                    packageName = callingPackage,
+                    startFrom = this@LinkRouterActivity,
+                )
+                finish()
             } else {
                 val preferred = settings.handoffBrowserPackage
                 val ok = BrowserHandoff.open(app, url, preferred)
-                runOnUiThread {
-                    if (!ok) {
-                        startActivity(
-                            Intent(this@LinkRouterActivity, MainActivity::class.java)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
-                    }
-                    finish()
+                if (!ok) {
+                    startActivity(
+                        Intent(this@LinkRouterActivity, MainActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
                 }
+                finish()
             }
         }
     }

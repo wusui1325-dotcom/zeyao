@@ -1,8 +1,10 @@
 package com.wusper.zeyao.intercept
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Looper
 import android.os.SystemClock
 import com.wusper.zeyao.InterceptActivity
 import com.wusper.zeyao.ZeyaoApp
@@ -174,7 +176,12 @@ object InterceptController {
         holds.getOrPut(key) { mutableListOf() }.add(connection)
     }
 
-    fun startOrRefine(url: String, title: String, packageName: String?) {
+    fun startOrRefine(
+        url: String,
+        title: String,
+        packageName: String?,
+        startFrom: Context? = null,
+    ) {
         val host = NewsHosts.hostOf(url).ifBlank { Uri.parse(url).host.orEmpty() }
         val open = findOpenSessionFor(url)
         if (open != null) {
@@ -189,7 +196,7 @@ object InterceptController {
                     beginGeneration(open.id, nextUrl, nextTitle, host)
                 }
             }
-            launchActivity(open.id, if (refined) url else open.url, title.ifBlank { open.title }, packageName)
+            launchActivity(open.id, if (refined) url else open.url, title.ifBlank { open.title }, packageName, startFrom)
             return
         }
         val id = UUID.randomUUID().toString()
@@ -210,7 +217,7 @@ object InterceptController {
                 id = id,
             )
         }
-        launchActivity(id, url, session.title, packageName)
+        launchActivity(id, url, session.title, packageName, startFrom)
         beginGeneration(id, url, session.title, host)
     }
 
@@ -341,8 +348,14 @@ object InterceptController {
         }
     }
 
-    private fun launchActivity(id: String, url: String, title: String, packageName: String?) {
-        val context: Context = app
+    private fun launchActivity(
+        id: String,
+        url: String,
+        title: String,
+        packageName: String?,
+        startFrom: Context? = null,
+    ) {
+        val context: Context = startFrom ?: app
         val intent = Intent(context, InterceptActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                 Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
@@ -353,8 +366,11 @@ object InterceptController {
             putExtra(InterceptActivity.EXTRA_TITLE, title)
             putExtra(InterceptActivity.EXTRA_PACKAGE, packageName)
         }
-        scope.launch(Dispatchers.Main) {
-            runCatching { context.startActivity(intent) }
+        val start = { runCatching { context.startActivity(intent) } }
+        if (context is Activity || Looper.myLooper() == Looper.getMainLooper()) {
+            start()
+        } else {
+            scope.launch(Dispatchers.Main.immediate) { start() }
         }
     }
 
