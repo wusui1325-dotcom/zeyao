@@ -19,6 +19,8 @@ data class AppSettings(
     val typographyStyle: TypographyStyle = TypographyStyle.EDITORIAL,
     val enterButtonPosition: EnterButtonPosition = EnterButtonPosition.ENTER_RIGHT,
     val continueOnExit: Boolean = true,
+    /** Package of the real browser used after 進入 or for non-news links. */
+    val handoffBrowserPackage: String = "",
 )
 
 enum class ThemeStyle { FOLLOW_SYSTEM, DARK, LIGHT }

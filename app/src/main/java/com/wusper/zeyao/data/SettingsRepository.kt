@@ -40,6 +40,7 @@ class SettingsRepository(private val context: Context) {
             prefs[TYPE] = next.typographyStyle.name
             prefs[ENTER_POS] = next.enterButtonPosition.name
             prefs[CONTINUE] = next.continueOnExit
+            prefs[HANDOFF] = next.handoffBrowserPackage
         }
     }
 
@@ -92,6 +93,7 @@ class SettingsRepository(private val context: Context) {
             EnterButtonPosition.valueOf(this[ENTER_POS] ?: "")
         }.getOrDefault(EnterButtonPosition.ENTER_RIGHT),
         continueOnExit = this[CONTINUE] ?: true,
+        handoffBrowserPackage = this[HANDOFF].orEmpty(),
     )
 
     private companion object {
@@ -109,5 +111,6 @@ class SettingsRepository(private val context: Context) {
         val TYPE = stringPreferencesKey("type")
         val ENTER_POS = stringPreferencesKey("enter_pos")
         val CONTINUE = booleanPreferencesKey("continue_on_exit")
+        val HANDOFF = stringPreferencesKey("handoff_browser")
     }
 }

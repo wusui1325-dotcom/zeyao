@@ -32,7 +32,6 @@ object BrowserPackages {
         "com.chrome.canary",
         "com.google.android.apps.chrome",
         "com.android.browser",
-        "com.android.vending", // ignore later if not a browser url
         "com.sec.android.app.sbrowser",
         "com.samsung.android.app.sbrowseredge",
         "org.mozilla.firefox",
@@ -86,5 +85,10 @@ object BrowserPackages {
         if (packageName in KNOWN) return true
         if (defaultBrowser != null && packageName == defaultBrowser) return true
         return false
+    }
+
+    fun urlViewIdsFor(packageName: String): List<String> {
+        val specific = URL_VIEW_IDS.filter { it.startsWith("$packageName:") }
+        return if (specific.isNotEmpty()) specific + URL_VIEW_IDS else URL_VIEW_IDS
     }
 }

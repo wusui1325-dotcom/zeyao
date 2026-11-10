@@ -70,10 +70,14 @@ fun SettingsScreen(
     onTogglePersistent: (Boolean) -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
     onOpenVpnSettings: () -> Unit,
+    browsers: List<Pair<String, String>>,
+    isDefaultBrowser: Boolean,
+    onRequestDefaultBrowser: () -> Unit,
 ) {
     var pickingApps by remember { mutableStateOf(false) }
     var pickingStart by remember { mutableStateOf(false) }
     var pickingEnd by remember { mutableStateOf(false) }
+    var pickingBrowser by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -152,9 +156,31 @@ fun SettingsScreen(
             PermissionLine(
                 title = "無障礙服務",
                 ok = accessibilityEnabled,
-                okText = "已開啟，可讀取完整新聞網址",
+                okText = "已開啟，只讀取瀏覽器網址列",
                 badText = "未開啟，點此前往系統設定",
                 onClick = onOpenAccessibilitySettings,
+            )
+
+            Spacer(Modifier.height(8.dp))
+            SectionLabel("預設瀏覽器")
+            PermissionLine(
+                title = "設為預設瀏覽器",
+                ok = isDefaultBrowser,
+                okText = "擇要目前是預設瀏覽器。不是新聞的連結會轉到下面指定的瀏覽器。",
+                badText = "未設定。點此向系統申請，打開連結時才能在進頁面前攔截。",
+                onClick = onRequestDefaultBrowser,
+            )
+            val handoffName = browsers.firstOrNull { it.first == settings.handoffBrowserPackage }?.second
+                ?: if (settings.handoffBrowserPackage.isBlank()) "尚未指定，將使用裝置上的常用瀏覽器" else settings.handoffBrowserPackage
+            Text(
+                "實際瀏覽器：$handoffName。點此選擇「進入」或非新聞連結要跳轉的瀏覽器。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable { pickingBrowser = true }
+                    .padding(vertical = 10.dp),
             )
 
             Spacer(Modifier.height(8.dp))
@@ -253,6 +279,17 @@ fun SettingsScreen(
             onConfirm = {
                 onUpdate { s -> s.copy(scheduleEndMinutes = it) }
                 pickingEnd = false
+            },
+        )
+    }
+    if (pickingBrowser) {
+        BrowserPickerDialog(
+            browsers = browsers,
+            selected = settings.handoffBrowserPackage,
+            onDismiss = { pickingBrowser = false },
+            onConfirm = { pkg ->
+                onUpdate { it.copy(handoffBrowserPackage = pkg) }
+                pickingBrowser = false
             },
         )
     }
@@ -418,6 +455,37 @@ private fun AppPickerDialog(
             }
         },
         confirmButton = { TextButton(onClick = { onConfirm(current) }) { Text("完成") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
+@Composable
+private fun BrowserPickerDialog(
+    browsers: List<Pair<String, String>>,
+    selected: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("實際瀏覽器") },
+        text = {
+            Column(
+                Modifier
+                    .height(360.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                browsers.forEach { (pkg, label) ->
+                    ChoiceRow(
+                        title = label,
+                        subtitle = pkg,
+                        selected = pkg == selected,
+                        onClick = { onConfirm(pkg) },
+                    )
+                }
+            }
+        },
+        confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
 }

@@ -9,6 +9,7 @@ import com.wusper.zeyao.ZeyaoApp
 import com.wusper.zeyao.ai.AiClientFactory
 import com.wusper.zeyao.ai.AiInitException
 import com.wusper.zeyao.ai.GenerationParams
+import com.wusper.zeyao.data.BrowserHandoff
 import com.wusper.zeyao.data.NewsHosts
 import com.wusper.zeyao.data.RecordStatus
 import com.wusper.zeyao.extract.ArticleFetcher
@@ -45,8 +46,8 @@ data class InterceptSession(
  */
 object InterceptController {
     private const val COOLDOWN_MS = 3 * 60 * 1000L
-    private const val HOST_PASSTHROUGH_MS = 45_000L
     private const val DUP_WINDOW_MS = 2_000L
+    private const val ENTER_SUPPRESS_MS = 12_000L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var app: ZeyaoApp
@@ -59,6 +60,16 @@ object InterceptController {
     private val hostPassthroughUntil = ConcurrentHashMap<String, Long>()
     private val lastSeenUrlAt = ConcurrentHashMap<String, Long>()
     private val holds = ConcurrentHashMap<String, MutableList<HeldConnection>>()
+
+    @Volatile
+    private var suppressUntilElapsed: Long = 0L
+
+    /**
+     * True while the 擇要 main/settings UI is in front. Used so opening the
+     * app, or looking at recent records, never starts a new intercept.
+     */
+    @Volatile
+    var appUiVisible: Boolean = false
 
     @Volatile
     var accessibility: ZeyaoAccessibilityService? = null
@@ -87,8 +98,23 @@ object InterceptController {
     fun peek(id: String): InterceptSession? = _sessions.value[id]
 
     fun isUrlCooled(url: String): Boolean {
-        val until = urlCooldownUntil[normalizeUrl(url)] ?: return false
-        return SystemClock.elapsedRealtime() < until
+        val now = SystemClock.elapsedRealtime()
+        if (now < suppressUntilElapsed) return true
+        val key = NewsHosts.canonicalUrl(url)
+        val exact = urlCooldownUntil[key]
+        if (exact != null && now < exact) return true
+        // Also treat a just-allowed article as cooled if the new URL is a
+        // redirect/slug extension of a cooled one (or vice versa).
+        for ((cooled, until) in urlCooldownUntil) {
+            if (now < until && NewsHosts.sameArticle(cooled, key)) return true
+        }
+        return false
+    }
+
+    private fun markAllowed(url: String) {
+        val now = SystemClock.elapsedRealtime()
+        urlCooldownUntil[NewsHosts.canonicalUrl(url)] = now + COOLDOWN_MS
+        suppressUntilElapsed = now + ENTER_SUPPRESS_MS
     }
 
     fun isHostPassthrough(host: String): Boolean {
@@ -97,7 +123,9 @@ object InterceptController {
     }
 
     suspend fun shouldIntercept(url: String, packageName: String?): Boolean {
+        if (appUiVisible) return false
         if (!NewsHosts.shouldInterceptUrl(url)) return false
+        if (NewsHosts.isBareHostUrl(url)) return false
         if (isUrlCooled(url)) return false
         val settings = app.settings.current()
         if (!app.settings.isInterceptArmed(settings)) return false
@@ -125,24 +153,25 @@ object InterceptController {
     }
 
     fun onHostDetected(host: String, packageName: String? = null) {
+        // SNI / Host only tells us the site, not the article. Never start a
+        // 擇要 session or summarize the homepage from a bare host.
         if (host.isBlank()) return
         if (isHostPassthrough(host)) return
-        val url = "https://$host/"
-        onUrlDetected(url, title = host, packageName = packageName)
     }
 
     fun registerHold(host: String, connection: HeldConnection) {
         val key = host.lowercase()
-        if (isHostPassthrough(key)) {
+        if (isHostPassthrough(key) || SystemClock.elapsedRealtime() < suppressUntilElapsed) {
+            connection.release()
+            return
+        }
+        val hasOpen = _sessions.value.values.any { it.host.equals(host, true) && !it.decided }
+        if (!hasOpen) {
+            // No article URL yet: do not stall the page and do not pop 擇要.
             connection.release()
             return
         }
         holds.getOrPut(key) { mutableListOf() }.add(connection)
-        // If no session is showing yet, open one from SNI so the overlay appears first.
-        val hasOpen = _sessions.value.values.any { it.host.equals(host, true) && !it.decided }
-        if (!hasOpen) {
-            onHostDetected(host)
-        }
     }
 
     fun startOrRefine(url: String, title: String, packageName: String?) {
@@ -154,7 +183,7 @@ object InterceptController {
                 val nextUrl = if (refined) url else open.url
                 val nextTitle = title.ifBlank { open.title }
                 updateSession(open.id) { it.copy(url = nextUrl, title = nextTitle, host = host.ifBlank { it.host }) }
-                if (refined && isBareHostUrl(open.url) && !isBareHostUrl(url)) {
+                if (refined && NewsHosts.isBareHostUrl(open.url) && !NewsHosts.isBareHostUrl(url)) {
                     // Restart generation with the real article URL if we only had a host.
                     jobs.remove(open.id)?.cancel()
                     beginGeneration(open.id, nextUrl, nextTitle, host)
@@ -188,15 +217,20 @@ object InterceptController {
     fun onEnter(sessionId: String) {
         val session = _sessions.value[sessionId] ?: return
         updateSession(sessionId) { it.copy(decided = true) }
-        urlCooldownUntil[normalizeUrl(session.url)] = SystemClock.elapsedRealtime() + COOLDOWN_MS
-        hostPassthroughUntil[session.host.lowercase()] = SystemClock.elapsedRealtime() + HOST_PASSTHROUGH_MS
+        markAllowed(session.url)
+        hostPassthroughUntil[session.host.lowercase()] = SystemClock.elapsedRealtime() + COOLDOWN_MS
         releaseHolds(session.host)
         maybeCancelOnExit(sessionId)
+        scope.launch(Dispatchers.Main) {
+            val preferred = runCatching { app.settings.current().handoffBrowserPackage }.getOrNull()
+            BrowserHandoff.open(app, session.url, preferred)
+        }
     }
 
     fun onBack(sessionId: String) {
         val session = _sessions.value[sessionId] ?: return
         updateSession(sessionId) { it.copy(decided = true) }
+        suppressUntilElapsed = SystemClock.elapsedRealtime() + ENTER_SUPPRESS_MS
         rejectHolds(session.host)
         maybeCancelOnExit(sessionId)
         scope.launch(Dispatchers.Main) {
@@ -225,17 +259,21 @@ object InterceptController {
             // If we only have a bare host, wait briefly for accessibility to supply the path.
             var workingUrl = url
             var workingTitle = title
-            if (isBareHostUrl(url)) {
-                val deadline = SystemClock.elapsedRealtime() + 800
+            if (NewsHosts.isBareHostUrl(url) || !NewsHosts.shouldInterceptUrl(url)) {
+                val deadline = SystemClock.elapsedRealtime() + 1_500
                 while (SystemClock.elapsedRealtime() < deadline) {
                     val latest = _sessions.value[id] ?: break
-                    if (!isBareHostUrl(latest.url)) {
+                    if (!NewsHosts.isBareHostUrl(latest.url) && NewsHosts.shouldInterceptUrl(latest.url)) {
                         workingUrl = latest.url
                         workingTitle = latest.title.ifBlank { workingTitle }
                         break
                     }
                     delay(50)
                 }
+            }
+            if (NewsHosts.isBareHostUrl(workingUrl) || !NewsHosts.shouldInterceptUrl(workingUrl)) {
+                fail(id, "尚未取得文章網址，仍可進入或返回")
+                return@launch
             }
             val fetched = runCatching { ArticleFetcher.fetch(workingUrl) }
             val article = fetched.getOrNull()
@@ -250,7 +288,7 @@ object InterceptController {
                 fail(id, "尚未設定 API Key，仍可進入或返回")
                 return@launch
             }
-            if (article == null && fetched.exceptionOrNull() != null && isBareHostUrl(workingUrl)) {
+            if (article == null && fetched.exceptionOrNull() != null && NewsHosts.isBareHostUrl(workingUrl)) {
                 // Still try a brief based on host/title so the page isn't empty forever.
             }
             if (article == null && fetched.exceptionOrNull() != null) {
@@ -325,21 +363,15 @@ object InterceptController {
         return _sessions.value.values
             .filter { !it.decided }
             .firstOrNull { existing ->
-                normalizeUrl(existing.url) == normalizeUrl(url) ||
-                    (existing.host.equals(host, true) && (isBareHostUrl(existing.url) || isBareHostUrl(url)))
+                NewsHosts.sameArticle(existing.url, url) ||
+                    (existing.host.equals(host, true) && (NewsHosts.isBareHostUrl(existing.url) || NewsHosts.isBareHostUrl(url)))
             }
     }
 
     private fun shouldReplaceUrl(current: String, incoming: String): Boolean {
         if (current == incoming) return false
-        if (isBareHostUrl(current) && !isBareHostUrl(incoming)) return true
+        if (NewsHosts.isBareHostUrl(current) && !NewsHosts.isBareHostUrl(incoming)) return true
         return false
-    }
-
-    private fun isBareHostUrl(url: String): Boolean {
-        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return true
-        val path = uri.path.orEmpty().trimEnd('/')
-        return path.isEmpty() && uri.query.isNullOrBlank()
     }
 
     private fun updateSession(id: String, transform: (InterceptSession) -> InterceptSession) {
@@ -371,22 +403,7 @@ object InterceptController {
         return uri.buildUpon().fragment(null).build().toString()
     }
 
-    private fun normalizeUrl(url: String): String {
-        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return url.lowercase()
-        val host = uri.host.orEmpty().lowercase()
-        val path = uri.path.orEmpty().ifEmpty { "/" }
-        val query = uri.query
-        return buildString {
-            append(uri.scheme?.lowercase() ?: "https")
-            append("://")
-            append(host)
-            append(path)
-            if (!query.isNullOrBlank()) {
-                append('?')
-                append(query)
-            }
-        }
-    }
+    private fun normalizeUrl(url: String): String = NewsHosts.canonicalUrl(url)
 }
 
 interface HeldConnection {

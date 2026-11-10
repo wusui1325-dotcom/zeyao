@@ -10,6 +10,11 @@ import com.wusper.zeyao.data.DefaultBrowser
 import com.wusper.zeyao.data.NewsHosts
 import java.util.regex.Pattern
 
+/**
+ * Only reads the browser address bar. Never walks the page for the first
+ * news link — that was picking related articles, records in 擇要, and
+ * random on-screen URLs.
+ */
 class ZeyaoAccessibilityService : AccessibilityService() {
 
     private val lastUrlByPackage = mutableMapOf<String, String>()
@@ -24,31 +29,35 @@ class ZeyaoAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+        if (InterceptController.appUiVisible) return
         val pkg = event.packageName?.toString() ?: return
         if (pkg == BuildConfig.APPLICATION_ID) return
+        if (!BrowserPackages.isBrowser(pkg, defaultBrowser)) return
         val type = event.eventType
         if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             type != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
-            type != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED &&
             type != AccessibilityEvent.TYPE_VIEW_FOCUSED
         ) {
+            // Ignore TYPE_VIEW_TEXT_CHANGED: that is usually the user typing in the omnibox.
             return
         }
         val now = SystemClock.elapsedRealtime()
         val last = lastScanAt[pkg] ?: 0L
-        // Always scan immediately on window change; debounce content changes.
-        if (type == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && now - last < 180) return
+        if (type == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && now - last < 250) return
         lastScanAt[pkg] = now
 
-        val isKnownBrowser = BrowserPackages.isBrowser(pkg, defaultBrowser)
-        val root = rootInActiveWindow ?: event.source
-        val url = extractUrl(root, pkg, isKnownBrowser)
-        root.takeIf { it != event.source }?.recycleSafely()
-        if (url.isNullOrBlank()) return
-        if (lastUrlByPackage[pkg] == url) return
-        lastUrlByPackage[pkg] = url
-        val title = event.text?.joinToString(" ")?.toString()?.trim().orEmpty()
-        InterceptController.onUrlDetected(url, title = title, packageName = pkg)
+        val root = rootInActiveWindow ?: return
+        try {
+            val rootPkg = root.packageName?.toString().orEmpty()
+            if (rootPkg == BuildConfig.APPLICATION_ID) return
+            if (rootPkg.isNotBlank() && rootPkg != pkg) return
+            val url = extractAddressBarUrl(root, pkg) ?: return
+            if (lastUrlByPackage[pkg] == url) return
+            lastUrlByPackage[pkg] = url
+            InterceptController.onUrlDetected(url, title = "", packageName = pkg)
+        } finally {
+            root.recycleSafely()
+        }
     }
 
     override fun onInterrupt() = Unit
@@ -64,51 +73,20 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         performGlobalAction(GLOBAL_ACTION_BACK)
     }
 
-    private fun extractUrl(root: AccessibilityNodeInfo?, pkg: String, isBrowser: Boolean): String? {
-        if (root == null) return null
-        // Prefer known address-bar IDs in browsers (including the system default browser).
-        if (isBrowser) {
-            for (viewId in BrowserPackages.URL_VIEW_IDS) {
-                val nodes = runCatching { root.findAccessibilityNodeInfosByViewId(viewId) }.getOrNull()
-                if (nodes.isNullOrEmpty()) continue
-                try {
-                    for (node in nodes) {
-                        normalizeCandidate(node.urlCandidate())?.let { return it }
-                    }
-                } finally {
-                    nodes.forEach { it.recycleSafely() }
-                }
-            }
-        }
-        // Walk a limited depth looking for http(s) or news-host paths.
-        val found = ArrayList<String>(2)
-        walk(root, 0, 18, found)
-        return found.firstOrNull()
-    }
-
-    private fun walk(node: AccessibilityNodeInfo, depth: Int, maxDepth: Int, out: MutableList<String>) {
-        if (out.isNotEmpty() || depth > maxDepth) return
-        normalizeCandidate(node.urlCandidate())?.let {
-            out.add(it)
-            return
-        }
-        // WebView nodes sometimes expose the URL in the content description or hint.
-        val className = node.className?.toString().orEmpty()
-        if (className.contains("WebView", ignoreCase = true)) {
-            normalizeCandidate(node.urlCandidate())?.let {
-                out.add(it)
-                return
-            }
-        }
-        for (i in 0 until node.childCount) {
-            val child = node.getChild(i) ?: continue
+    private fun extractAddressBarUrl(root: AccessibilityNodeInfo, pkg: String): String? {
+        val ids = BrowserPackages.urlViewIdsFor(pkg)
+        for (viewId in ids) {
+            val nodes = runCatching { root.findAccessibilityNodeInfosByViewId(viewId) }.getOrNull()
+            if (nodes.isNullOrEmpty()) continue
             try {
-                walk(child, depth + 1, maxDepth, out)
+                for (node in nodes) {
+                    normalizeAddress(node.urlCandidate())?.let { return it }
+                }
             } finally {
-                child.recycleSafely()
+                nodes.forEach { it.recycleSafely() }
             }
-            if (out.isNotEmpty()) return
         }
+        return null
     }
 
     private fun AccessibilityNodeInfo.urlCandidate(): String {
@@ -116,23 +94,23 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         return parts.mapNotNull { it?.toString()?.trim() }.firstOrNull { it.isNotBlank() }.orEmpty()
     }
 
-    private fun normalizeCandidate(raw: String): String? {
-        if (raw.isBlank() || raw.length < 4) return null
-        val trimmed = raw.trim().trimEnd('/')
+    private fun normalizeAddress(raw: String): String? {
+        if (raw.isBlank() || raw.length < 8) return null
+        var trimmed = raw.trim()
             .removePrefix("查看 ")
             .removePrefix("檢視 ")
+            .removePrefix("https://")
+            .removePrefix("http://")
         if (trimmed.startsWith("about:") || trimmed.startsWith("chrome") ||
-            trimmed.startsWith("javascript:") || trimmed.startsWith("data:")
+            trimmed.startsWith("javascript:") || trimmed.startsWith("data:") ||
+            trimmed.startsWith("file:") || trimmed.contains(' ')
         ) {
             return null
         }
-        val fromPattern = URL_PATTERN.matcher(trimmed)
-        if (fromPattern.find()) {
-            val matched = fromPattern.group()
-            return if (NewsHosts.shouldInterceptUrl(matched)) matched else null
-        }
-        // Chrome often shows the URL without a scheme: "www.bbc.com/news/..."
-        val maybe = if (trimmed.startsWith("http")) trimmed else "https://$trimmed"
+        // Chrome may show only the host while loading, or a search query without dots.
+        val matcher = HOST_PATH.matcher(trimmed)
+        if (!matcher.matches()) return null
+        val maybe = "https://" + trimmed.trimEnd('/')
         return if (NewsHosts.shouldInterceptUrl(maybe)) maybe else null
     }
 
@@ -141,8 +119,8 @@ class ZeyaoAccessibilityService : AccessibilityService() {
     }
 
     private companion object {
-        val URL_PATTERN: Pattern = Pattern.compile(
-            "https?://[\\w\\-.:]+(?:/[\\w\\-._~!$&'()*+,;=:@/%?#=]*)?",
+        val HOST_PATH: Pattern = Pattern.compile(
+            "^[\\w.-]+\\.[a-zA-Z]{2,}(?::\\d+)?(?:/[\\w\\-._~!$&'()*+,;=:@/%?#=]*)?$",
             Pattern.CASE_INSENSITIVE,
         )
     }

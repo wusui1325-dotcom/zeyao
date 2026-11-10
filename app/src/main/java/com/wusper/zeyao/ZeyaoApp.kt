@@ -1,6 +1,8 @@
 package com.wusper.zeyao
 
+import android.app.Activity
 import android.app.Application
+import android.os.Bundle
 import com.wusper.zeyao.data.RecordRepository
 import com.wusper.zeyao.data.SecretStore
 import com.wusper.zeyao.data.SettingsRepository
@@ -21,6 +23,19 @@ class ZeyaoApp : Application() {
         secrets = SecretStore(this)
         records = RecordRepository(this)
         InterceptController.attach(this)
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityResumed(activity: Activity) {
+                InterceptController.appUiVisible = activity is MainActivity
+            }
+            override fun onActivityPaused(activity: Activity) {
+                if (activity is MainActivity) InterceptController.appUiVisible = false
+            }
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+            override fun onActivityStarted(activity: Activity) = Unit
+            override fun onActivityStopped(activity: Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+            override fun onActivityDestroyed(activity: Activity) = Unit
+        })
     }
 
     companion object {

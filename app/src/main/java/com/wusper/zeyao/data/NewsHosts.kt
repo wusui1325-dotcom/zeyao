@@ -118,10 +118,24 @@ object NewsHosts {
         return ARTICLE_HINTS.any { it in u }
     }
 
+    private val SKIP_PATH_PREFIXES = listOf(
+        "/login", "/signin", "/signup", "/register", "/account", "/accounts",
+        "/search", "/subscribe", "/subscription", "/privacy", "/terms",
+        "/cookie", "/gdpr", "/settings", "/preferences", "/profile",
+        "/user/", "/my/", "/cart", "/checkout", "/help", "/about",
+        "/contact", "/advertise", "/jobs", "/careers", "/video/player",
+    )
+
+    private val TRACKING_PARAMS = setOf(
+        "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+        "fbclid", "gclid", "gbraid", "wbraid", "mc_cid", "mc_eid",
+        "igshid", "si", "spm", "ref", "ref_src", "ref_url", "ncid",
+        "ocid", "yclid", "msclkid", "sref",
+    )
+
     /**
-     * v1 policy: intercept only when the host is on the list.
-     * Path keywords are a weak extra signal used to skip obvious non-articles
-     * (bare homepages still count; static assets do not).
+     * Start a 擇要 session only for a real article URL on a listed news host.
+     * Bare homepages, section fronts, assets, and account/search pages are skipped.
      */
     fun shouldInterceptUrl(url: String): Boolean {
         val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
@@ -130,7 +144,74 @@ object NewsHosts {
         val host = uri.host ?: return false
         if (!isNewsHost(host)) return false
         if (isProbablyAsset(url)) return false
-        return true
+        return isLikelyArticle(uri)
+    }
+
+    fun isLikelyArticle(url: String): Boolean {
+        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
+        return isLikelyArticle(uri)
+    }
+
+    fun isLikelyArticle(uri: Uri): Boolean {
+        val path = uri.path.orEmpty().trimEnd('/')
+        if (path.isEmpty() || path == "/") return false
+        val lower = path.lowercase(Locale.ROOT)
+        if (SKIP_PATH_PREFIXES.any { lower == it || lower.startsWith("$it/") || lower.startsWith(it) && it.endsWith("/") }) {
+            // allow if the skipped prefix is only a short start of a longer article path? keep skip.
+            if (SKIP_PATH_PREFIXES.any { lower == it.trimEnd('/') || lower.startsWith(it.trimEnd('/') + "/") }) return false
+        }
+        val segments = path.split('/').filter { it.isNotBlank() }
+        if (segments.isEmpty()) return false
+        val joined = uri.toString().lowercase(Locale.ROOT)
+        if (hasArticleHint(joined)) return true
+        val last = segments.last()
+        val looksLikeSlug = last.length >= 8 || last.any { it.isDigit() }
+        // Single short section path such as /news or /hk should not intercept.
+        if (segments.size == 1 && !looksLikeSlug) return false
+        if (segments.size >= 2 && looksLikeSlug) return true
+        if (segments.size >= 3) return true
+        return looksLikeSlug
+    }
+
+    fun isBareHostUrl(url: String): Boolean {
+        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return true
+        val path = uri.path.orEmpty().trimEnd('/')
+        return path.isEmpty() && uri.query.isNullOrBlank()
+    }
+
+    fun canonicalUrl(url: String): String {
+        val uri = runCatching { Uri.parse(url.trim()) }.getOrNull() ?: return url.lowercase(Locale.ROOT)
+        var host = uri.host.orEmpty().lowercase(Locale.ROOT)
+        if (host.startsWith("www.")) host = host.removePrefix("www.")
+        var path = uri.path.orEmpty().ifEmpty { "/" }
+        if (path.length > 1) path = path.trimEnd('/')
+        val kept = uri.queryParameterNames
+            .filter { it.lowercase(Locale.ROOT) !in TRACKING_PARAMS }
+            .sorted()
+            .mapNotNull { name ->
+                val value = uri.getQueryParameter(name) ?: return@mapNotNull null
+                if (value.isBlank()) null else "$name=$value"
+            }
+        return buildString {
+            append("https://")
+            append(host)
+            append(path)
+            if (kept.isNotEmpty()) {
+                append('?')
+                append(kept.joinToString("&"))
+            }
+        }
+    }
+
+    fun sameArticle(a: String, b: String): Boolean {
+        if (a.isBlank() || b.isBlank()) return false
+        val ca = canonicalUrl(a)
+        val cb = canonicalUrl(b)
+        if (ca == cb) return true
+        // Treat a redirect that only appends a slug after a shared prefix as the same article.
+        val shorter = if (ca.length <= cb.length) ca else cb
+        val longer = if (ca.length <= cb.length) cb else ca
+        return longer.startsWith(shorter) && (longer.length == shorter.length || longer[shorter.length] == '/' || longer[shorter.length] == '?')
     }
 
     fun hostOf(url: String): String {

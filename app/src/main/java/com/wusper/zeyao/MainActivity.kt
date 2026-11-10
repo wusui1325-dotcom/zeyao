@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
 import com.wusper.zeyao.data.AppSettings
+import com.wusper.zeyao.data.BrowserHandoff
 import com.wusper.zeyao.data.SummaryRecord
 import com.wusper.zeyao.intercept.InterceptController
 import com.wusper.zeyao.intercept.VpnController
@@ -62,13 +63,17 @@ class MainActivity : ComponentActivity() {
             var route by remember { mutableStateOf(Route.MAIN) }
             var openedRecord by remember { mutableStateOf<SummaryRecord?>(null) }
             var apps by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
+            var browsers by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
             var vpnReady by remember { mutableStateOf(SystemChecks.isVpnPrepared(this@MainActivity)) }
             var accessibilityOn by remember { mutableStateOf(SystemChecks.isAccessibilityEnabled(this@MainActivity)) }
+            var isDefaultBrowser by remember { mutableStateOf(BrowserHandoff.isZeyaoDefaultBrowser(this@MainActivity)) }
             var resumeTick by remember { mutableStateOf(0) }
 
             LaunchedEffect(route) {
                 if (route == Route.SETTINGS) {
                     apps = withContext(Dispatchers.IO) { SystemChecks.listLaunchableApps(this@MainActivity) }
+                    browsers = withContext(Dispatchers.IO) { BrowserHandoff.listBrowsers(this@MainActivity) }
+                    isDefaultBrowser = BrowserHandoff.isZeyaoDefaultBrowser(this@MainActivity)
                 }
             }
 
@@ -78,6 +83,7 @@ class MainActivity : ComponentActivity() {
                         if (activity === this@MainActivity) {
                             vpnReady = SystemChecks.isVpnPrepared(this@MainActivity)
                             accessibilityOn = SystemChecks.isAccessibilityEnabled(this@MainActivity)
+                            isDefaultBrowser = BrowserHandoff.isZeyaoDefaultBrowser(this@MainActivity)
                             resumeTick++
                         }
                     }
@@ -129,6 +135,11 @@ class MainActivity : ComponentActivity() {
                                     startActivity(SystemChecks.accessibilitySettingsIntent())
                                 },
                                 onOpenVpnSettings = { prepareOrStartVpn() },
+                                browsers = browsers,
+                                isDefaultBrowser = isDefaultBrowser,
+                                onRequestDefaultBrowser = {
+                                    startActivity(BrowserHandoff.requestDefaultBrowserIntent(this@MainActivity))
+                                },
                             )
                         }
                         route == Route.OTHER -> {
