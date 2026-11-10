@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Zeyao" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/zeyao_paper</item>
+        <item name="android:navigationBarColor">@color/zeyao_paper</item>
+        <item name="android:windowBackground">@color/zeyao_paper</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+    <style name="Theme.Zeyao.Intercept" parent="Theme.Zeyao">
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowDisablePreview">true</item>
+    </style>
+</resources>

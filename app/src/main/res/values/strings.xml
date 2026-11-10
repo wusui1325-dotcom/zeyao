@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">擇要</string>
+    <string name="accessibility_service_description">擇要會讀取瀏覽器位址列中的網址，以便在新聞頁面打開前先顯示摘要。擇要不會把你的 API 金鑰送出裝置以外的地方（僅用於你所選定的 AI 服務商），也不會收集無相關的畫面內容。</string>
+    <string name="vpn_notification_title">擇要正在攔截新聞頁</string>
+    <string name="vpn_notification_text">本機 VPN 已開啟，流量不會送往遠端伺服器。</string>
+    <string name="accessibility_notification_hint">請在系統設定中開啟擇要的無障礙服務，才能讀取完整新聞網址。</string>
+</resources>

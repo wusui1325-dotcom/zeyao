@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- A vertical vermilion mark, like a brush slash / 朱批 -->
+    <path
+        android:fillColor="#B33A2B"
+        android:pathData="M52,26h6c1.2,0 2.2,1 2.2,2.2v51.6c0,1.2 -1,2.2 -2.2,2.2h-6c-1.2,0 -2.2,-1 -2.2,-2.2V28.2c0,-1.2 1,-2.2 2.2,-2.2z" />
+    <path
+        android:fillColor="#F6F0E6"
+        android:pathData="M36,46h12c1,0 1.8,0.8 1.8,1.8v2.4c0,1 -0.8,1.8 -1.8,1.8H36c-1,0 -1.8,-0.8 -1.8,-1.8v-2.4c0,-1 0.8,-1.8 1.8,-1.8z" />
+    <path
+        android:fillColor="#F6F0E6"
+        android:pathData="M60,58h12c1,0 1.8,0.8 1.8,1.8v2.4c0,1 -0.8,1.8 -1.8,1.8H60c-1,0 -1.8,-0.8 -1.8,-1.8v-2.4c0,-1 0.8,-1.8 1.8,-1.8z" />
+</vector>
