@@ -197,6 +197,20 @@ object NewsHosts {
         }
     }
 
+    /**
+     * Any http(s) page that can be shown in the verify float — not limited
+     * to the built-in news host list. Assets and non-web schemes are skipped.
+     */
+    fun isClassifiableUrl(url: String): Boolean {
+        val resolved = unwrapUrl(url)
+        val uri = runCatching { Uri.parse(resolved) }.getOrNull() ?: return false
+        val scheme = uri.scheme?.lowercase(Locale.ROOT)
+        if (scheme != "http" && scheme != "https") return false
+        if (uri.host.isNullOrBlank()) return false
+        if (isProbablyAsset(resolved)) return false
+        return true
+    }
+
     fun isLikelyArticle(url: String): Boolean {
         val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
         return isLikelyArticle(uri)

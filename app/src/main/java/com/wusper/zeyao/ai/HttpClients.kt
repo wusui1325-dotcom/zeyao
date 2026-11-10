@@ -15,4 +15,11 @@ internal object HttpClients {
         .readTimeout(90, TimeUnit.SECONDS)
         .writeTimeout(20, TimeUnit.SECONDS)
         .build()
+
+    val classify: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(6, TimeUnit.SECONDS)
+        .writeTimeout(6, TimeUnit.SECONDS)
+        .callTimeout(8, TimeUnit.SECONDS)
+        .build()
 }

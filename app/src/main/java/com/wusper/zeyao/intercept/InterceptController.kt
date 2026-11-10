@@ -7,10 +7,12 @@ import android.net.Uri
 import android.os.Looper
 import android.os.SystemClock
 import com.wusper.zeyao.InterceptActivity
+import com.wusper.zeyao.VerifyActivity
 import com.wusper.zeyao.ZeyaoApp
 import com.wusper.zeyao.ai.AiClientFactory
 import com.wusper.zeyao.ai.AiInitException
 import com.wusper.zeyao.ai.GenerationParams
+import com.wusper.zeyao.ai.NewsClassifier
 import com.wusper.zeyao.data.BrowserHandoff
 import com.wusper.zeyao.data.NewsHosts
 import com.wusper.zeyao.data.RecordStatus
@@ -50,6 +52,7 @@ object InterceptController {
     private const val COOLDOWN_MS = 3 * 60 * 1000L
     private const val DUP_WINDOW_MS = 2_000L
     private const val ENTER_SUPPRESS_MS = 12_000L
+    private const val NOT_NEWS_COOLDOWN_MS = 10 * 60 * 1000L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var app: ZeyaoApp
@@ -126,8 +129,7 @@ object InterceptController {
 
     suspend fun shouldIntercept(url: String, packageName: String?): Boolean {
         if (appUiVisible) return false
-        if (!NewsHosts.shouldInterceptUrl(url)) return false
-        if (NewsHosts.isBareHostUrl(url)) return false
+        if (!NewsHosts.isClassifiableUrl(url)) return false
         if (isUrlCooled(url)) return false
         val settings = app.settings.current()
         if (!app.settings.isInterceptArmed(settings)) return false
@@ -141,16 +143,63 @@ object InterceptController {
     fun onUrlDetected(url: String, title: String? = null, packageName: String? = null) {
         if (!::app.isInitialized) return
         val clean = sanitizeUrl(url) ?: return
+        beginVerify(clean, title.orEmpty(), packageName, startFrom = null, handoffIfNotNews = false)
+    }
+
+    fun markNotNews(url: String) {
+        if (url.isBlank()) return
+        val key = NewsHosts.canonicalUrl(url)
+        NewsClassifier.remember(key, false)
+        urlCooldownUntil[key] = SystemClock.elapsedRealtime() + NOT_NEWS_COOLDOWN_MS
+    }
+
+    /**
+     * Show the small「驗證中」float, classify with the vendor flash model,
+     * then open the 擇要 page or let the real browser continue.
+     */
+    fun beginVerify(
+        url: String,
+        title: String,
+        packageName: String?,
+        startFrom: Context? = null,
+        handoffIfNotNews: Boolean,
+    ) {
+        if (!::app.isInitialized) return
+        val clean = sanitizeUrl(url) ?: return
         scope.launch {
-            if (!shouldIntercept(clean, packageName)) return@launch
+            if (appUiVisible) {
+                if (handoffIfNotNews) openInBrowser(clean)
+                return@launch
+            }
+            val settings = app.settings.current()
+            if (!app.settings.isInterceptArmed(settings) || !app.settings.isAppTargeted(settings, packageName)) {
+                if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
+                return@launch
+            }
+            if (!NewsHosts.isClassifiableUrl(clean) || isUrlCooled(clean)) {
+                if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
+                return@launch
+            }
             val now = SystemClock.elapsedRealtime()
             val last = lastSeenUrlAt.put(normalizeUrl(clean), now)
-            if (last != null && now - last < DUP_WINDOW_MS) {
-                // Still allow refining a host-only session with a full path.
-                val existing = findOpenSessionFor(clean)
-                if (existing == null || existing.url == clean) return@launch
+            if (last != null && now - last < DUP_WINDOW_MS) return@launch
+            val cached = NewsClassifier.cached(NewsHosts.canonicalUrl(clean))
+            if (cached == true) {
+                startOrRefine(clean, title, packageName, startFrom)
+                return@launch
             }
-            startOrRefine(clean, title.orEmpty(), packageName)
+            if (cached == false) {
+                if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
+                return@launch
+            }
+            launchVerifyActivity(clean, title, packageName, startFrom, handoffIfNotNews)
+        }
+    }
+
+    private fun openInBrowser(url: String, preferred: String? = null) {
+        scope.launch(Dispatchers.Main.immediate) {
+            val pkg = preferred ?: runCatching { app.settings.current().handoffBrowserPackage }.getOrNull()
+            BrowserHandoff.open(app, url, pkg)
         }
     }
 
@@ -266,11 +315,11 @@ object InterceptController {
             // If we only have a bare host, wait briefly for accessibility to supply the path.
             var workingUrl = url
             var workingTitle = title
-            if (NewsHosts.isBareHostUrl(url) || !NewsHosts.shouldInterceptUrl(url)) {
+            if (NewsHosts.isBareHostUrl(url) || !NewsHosts.isClassifiableUrl(url)) {
                 val deadline = SystemClock.elapsedRealtime() + 1_500
                 while (SystemClock.elapsedRealtime() < deadline) {
                     val latest = _sessions.value[id] ?: break
-                    if (!NewsHosts.isBareHostUrl(latest.url) && NewsHosts.shouldInterceptUrl(latest.url)) {
+                    if (!NewsHosts.isBareHostUrl(latest.url) && NewsHosts.isClassifiableUrl(latest.url)) {
                         workingUrl = latest.url
                         workingTitle = latest.title.ifBlank { workingTitle }
                         break
@@ -278,7 +327,7 @@ object InterceptController {
                     delay(50)
                 }
             }
-            if (NewsHosts.isBareHostUrl(workingUrl) || !NewsHosts.shouldInterceptUrl(workingUrl)) {
+            if (NewsHosts.isBareHostUrl(workingUrl) || !NewsHosts.isClassifiableUrl(workingUrl)) {
                 fail(id, "尚未取得文章網址，仍可進入或返回")
                 return@launch
             }
@@ -366,6 +415,31 @@ object InterceptController {
             putExtra(InterceptActivity.EXTRA_TITLE, title)
             putExtra(InterceptActivity.EXTRA_PACKAGE, packageName)
         }
+        startNow(context, intent)
+    }
+
+    private fun launchVerifyActivity(
+        url: String,
+        title: String,
+        packageName: String?,
+        startFrom: Context?,
+        handoffIfNotNews: Boolean,
+    ) {
+        val context: Context = startFrom ?: app
+        val intent = Intent(context, VerifyActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                Intent.FLAG_ACTIVITY_NO_ANIMATION or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(VerifyActivity.EXTRA_URL, url)
+            putExtra(VerifyActivity.EXTRA_TITLE, title)
+            putExtra(VerifyActivity.EXTRA_PACKAGE, packageName)
+            putExtra(VerifyActivity.EXTRA_HANDOFF, handoffIfNotNews)
+        }
+        startNow(context, intent)
+    }
+
+    private fun startNow(context: Context, intent: Intent) {
         val start = { runCatching { context.startActivity(intent) } }
         if (context is Activity || Looper.myLooper() == Looper.getMainLooper()) {
             start()

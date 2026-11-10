@@ -12,8 +12,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Default-browser entry: news URLs open the 擇要 page; everything else
- * (and 進入) is handed to the user-chosen real browser.
+ * Default-browser entry: every web URL first hits the small「驗證中」float.
+ * The chosen vendor's flash model decides whether to open the 擇要 page
+ * or hand the link to the real browser.
  */
 class LinkRouterActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,26 +34,30 @@ class LinkRouterActivity : Activity() {
             finish()
             return
         }
-        // Stay on the main thread after settings load so InterceptActivity
-        // is started from this still-visible activity, not after we finish.
         CoroutineScope(Dispatchers.Main.immediate).launch {
             val app = application as ZeyaoApp
             val settings = withContext(Dispatchers.IO) { app.settings.current() }
             val url = NewsHosts.unwrapUrl(raw)
             val armed = app.settings.isInterceptArmed(settings)
-            val news = NewsHosts.shouldInterceptUrl(url, loose = true)
+            val classifiable = NewsHosts.isClassifiableUrl(url)
             val cooled = InterceptController.isUrlCooled(url)
-            if (armed && news && !cooled) {
-                InterceptController.startOrRefine(
-                    url,
-                    title = "",
-                    packageName = callingPackage,
-                    startFrom = this@LinkRouterActivity,
+            if (armed && classifiable && !cooled) {
+                startActivity(
+                    Intent(this@LinkRouterActivity, VerifyActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                            Intent.FLAG_ACTIVITY_NO_ANIMATION or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        putExtra(VerifyActivity.EXTRA_URL, url)
+                        putExtra(VerifyActivity.EXTRA_TITLE, "")
+                        putExtra(VerifyActivity.EXTRA_PACKAGE, callingPackage)
+                        putExtra(VerifyActivity.EXTRA_HANDOFF, true)
+                    },
                 )
                 finish()
+                overridePendingTransition(0, 0)
             } else {
-                val preferred = settings.handoffBrowserPackage
-                val ok = BrowserHandoff.open(app, url, preferred)
+                val ok = BrowserHandoff.open(app, url, settings.handoffBrowserPackage)
                 if (!ok) {
                     startActivity(
                         Intent(this@LinkRouterActivity, MainActivity::class.java)

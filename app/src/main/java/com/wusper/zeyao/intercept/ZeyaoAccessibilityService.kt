@@ -111,7 +111,7 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         val matcher = HOST_PATH.matcher(trimmed)
         if (!matcher.matches()) return null
         val maybe = "https://" + trimmed.trimEnd('/')
-        return if (NewsHosts.shouldInterceptUrl(maybe)) maybe else null
+        return if (NewsHosts.isClassifiableUrl(maybe)) maybe else null
     }
 
     private fun AccessibilityNodeInfo.recycleSafely() {
