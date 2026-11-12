@@ -458,15 +458,32 @@ object InterceptController {
             }
             try {
                 val client = AiClientFactory.create(settings.providerId)
+                val useSearch = (searchOverride ?: settings.searchNewsEnabled) &&
+                    settings.providerId == "deepseek"
+                val searchContext = if (useSearch) {
+                    val query = workingTitle.ifBlank { workingUrl }.take(100)
+                    val hits = com.wusper.zeyao.ai.DeepSeekSearch.search(key, query, count = 5)
+                    com.wusper.zeyao.ai.DeepSeekSearch.formatForPrompt(hits)
+                } else {
+                    ""
+                }
+                val articleText = buildString {
+                    if (searchContext.isNotBlank()) {
+                        append(searchContext)
+                        appendLine()
+                        appendLine("---")
+                    }
+                    append(article?.text.orEmpty())
+                }
                 client.streamSummary(
                     apiKey = key,
                     title = workingTitle,
                     url = workingUrl,
-                    articleText = article?.text.orEmpty(),
+                    articleText = articleText,
                     params = GenerationParams(
                         language = settings.language,
                         summaryLength = lengthOverride ?: settings.summaryLength,
-                        searchNews = searchOverride ?: settings.searchNewsEnabled,
+                        searchNews = useSearch,
                     ),
                 ).collect { delta ->
                     if (delta.isEmpty()) return@collect

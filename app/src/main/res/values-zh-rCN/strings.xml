@@ -124,5 +124,5 @@
     <string name="section_summary">摘要偏好</string>
     <string name="pref_length">默认长度</string>
     <string name="pref_search">默认开启搜索</string>
-    <string name="pref_search_hint">开启后，择要前会提示模型核对新闻重点、标题与关键词。</string>
+    <string name="pref_search_hint">开启后，DeepSeek 会先调用官方 Search API 核对新闻，再撰写摘要。其他服务商则以提示词要求核对。</string>
 </resources>
