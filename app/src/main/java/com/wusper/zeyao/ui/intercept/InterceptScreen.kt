@@ -26,6 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.wusper.zeyao.R
 import com.wusper.zeyao.data.EnterButtonPosition
 import com.wusper.zeyao.intercept.InterceptSession
 
@@ -47,7 +49,7 @@ fun InterceptScreen(
             .navigationBarsPadding()
             .padding(horizontal = 22.dp, vertical = 8.dp),
     ) {
-        Text("擇要", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Text(stringResource(R.string.brand_name), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(12.dp))
         Text(
             text = title,
@@ -159,13 +161,13 @@ private fun EnterButton(onClick: () -> Unit, modifier: Modifier) {
             contentColor = MaterialTheme.colorScheme.onPrimary,
         ),
     ) {
-        Text("進入", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.enter), style = MaterialTheme.typography.titleMedium)
     }
 }
 
 @Composable
 private fun BackButton(onClick: () -> Unit, modifier: Modifier) {
     OutlinedButton(onClick = onClick, modifier = modifier.height(52.dp)) {
-        Text("返回", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.back), style = MaterialTheme.typography.titleMedium)
     }
 }

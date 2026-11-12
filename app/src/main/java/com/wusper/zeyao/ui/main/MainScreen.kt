@@ -28,6 +28,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.wusper.zeyao.R
 import com.wusper.zeyao.data.AppSettings
 import com.wusper.zeyao.data.RecordStatus
 import com.wusper.zeyao.data.SummaryRecord
@@ -82,7 +84,7 @@ fun MainScreen(
                 onToggle = onToggleIntercept,
             )
             Spacer(Modifier.height(28.dp))
-            Text("最近紀錄", style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant)
+            Text(stringResource(R.string.recent_records), style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
         }
         if (records.isEmpty()) {
@@ -123,7 +125,7 @@ private fun InterceptCard(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("攔截新聞頁", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.intercept_news), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     statusLine(interceptOn, vpnReady, accessibilityEnabled, scheduleEnabled),

@@ -23,6 +23,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.wusper.zeyao.R
 import com.wusper.zeyao.ai.AiProvider
 import com.wusper.zeyao.data.AppLanguage
 import com.wusper.zeyao.ui.components.ChoiceRow
@@ -53,9 +55,9 @@ fun OtherScreen(
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TopAction("返回", onBack)
+            TopAction(stringResource(R.string.back), onBack)
             Spacer(Modifier.weight(1f))
-            Text("其他", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.other), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.weight(1f))
             Spacer(Modifier.width(64.dp))
         }
@@ -65,18 +67,18 @@ fun OtherScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 8.dp),
         ) {
-            SectionLabel("AI 服務")
+            SectionLabel(stringResource(R.string.section_ai))
             Text(
-                "目前使用 ${provider.displayName}。金鑰只保存在這部裝置上，可在此重新設定服務商與 API Key。",
+                stringResource(R.string.other_ai_hint, provider.displayName),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(16.dp))
-            PrimaryButton("重新設定 API Key", onClick = onReconfigureKey)
+            PrimaryButton(stringResource(R.string.reconfigure_key), onClick = onReconfigureKey)
             Spacer(Modifier.height(36.dp))
-            SectionLabel("測試擇要")
+            SectionLabel(stringResource(R.string.section_test))
             Text(
-                "在尚未開啟攔截時，也可以貼上新聞網址預覽擇要頁。返回與進入會立即出現，摘要採流式輸出。",
+                stringResource(R.string.other_test_hint),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -85,20 +87,20 @@ fun OtherScreen(
                 value = testUrl,
                 onValueChange = { testUrl = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("新聞網址") },
+                label = { Text(stringResource(R.string.news_url)) },
                 placeholder = { Text("https://") },
                 singleLine = true,
             )
             Spacer(Modifier.height(12.dp))
             PrimaryButton(
-                text = "開啟擇要頁",
+                text = stringResource(R.string.open_intercept),
                 onClick = { onTestUrl(testUrl.trim()) },
                 enabled = testUrl.isNotBlank(),
             )
             Spacer(Modifier.height(36.dp))
-            SectionLabel("語言")
+            SectionLabel(stringResource(R.string.section_language))
             Text(
-                "選擇介面語言。更改後部分文字會在下次進入相關頁面時更新。",
+                stringResource(R.string.other_lang_hint),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -114,9 +116,9 @@ fun OtherScreen(
                 }
             }
             Spacer(Modifier.height(36.dp))
-            SectionLabel("關於")
+            SectionLabel(stringResource(R.string.section_about))
             Text(
-                "擇要 0.1.0\nWusper 相關應用。本機攔截新聞頁，以你自己的 AI 金鑰產生流式摘要。",
+                stringResource(R.string.about_text),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

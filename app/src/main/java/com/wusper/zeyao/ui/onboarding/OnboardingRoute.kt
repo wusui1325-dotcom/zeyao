@@ -40,6 +40,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.wusper.zeyao.R
 import com.wusper.zeyao.ZeyaoApp
 import com.wusper.zeyao.ai.AiClientFactory
 import com.wusper.zeyao.ai.AiInitException
@@ -177,13 +179,13 @@ private fun LanguageStep(onSelect: (AppLanguage) -> Unit) {
         BrandMark()
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "選擇語言 / Choose language",
+            text = stringResource(R.string.lang_title),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "之後可在「其他」中更改。",
+            text = stringResource(R.string.lang_hint),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -215,13 +217,13 @@ private fun ProviderStep(
         BrandMark()
         Spacer(Modifier.height(16.dp))
         Text(
-            text = if (reconfigure) "重新選擇 AI 服務商" else "打開新聞前，先讀重點。",
+            text = if (reconfigure) stringResource(R.string.onboard_reconfigure_title) else stringResource(R.string.onboard_title),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "請選擇摘要使用的 AI 服務商。金鑰只會保存在這部裝置上。",
+            text = stringResource(R.string.onboard_provider_hint),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -243,7 +245,7 @@ private fun ProviderStep(
         }
         Spacer(Modifier.height(16.dp))
         PrimaryButton(
-            text = "繼續",
+            text = stringResource(R.string.continue_action),
             onClick = onContinue,
             enabled = selected != null,
         )

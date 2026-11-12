@@ -5,4 +5,81 @@
     <string name="vpn_notification_title">擇要正在攔截新聞頁</string>
     <string name="vpn_notification_text">本機 VPN 已開啟，流量不會送往遠端伺服器。</string>
     <string name="accessibility_notification_hint">請在系統設定中開啟擇要的無障礙服務，才能讀取完整新聞網址。</string>
+
+    <!-- Common -->
+    <string name="back">返回</string>
+    <string name="continue_action">繼續</string>
+    <string name="cancel">取消</string>
+    <string name="ok">確定</string>
+    <string name="done">完成</string>
+    <string name="enter">進入</string>
+    <string name="settings">設置</string>
+    <string name="other">其他</string>
+
+    <!-- Onboarding -->
+    <string name="lang_title">選擇語言 / Choose language</string>
+    <string name="lang_hint">之後可在「其他」中更改。</string>
+    <string name="onboard_title">打開新聞前，先讀重點。</string>
+    <string name="onboard_provider_hint">請選擇摘要使用的 AI 服務商。金鑰只會保存在這部裝置上。</string>
+    <string name="onboard_reconfigure_title">重新選擇 AI 服務商</string>
+    <string name="onboard_key_title">輸入 %1$s API Key</string>
+    <string name="onboard_key_hint">金鑰以加密方式存在本機，不會寫入原始碼、日誌或雲端。擇要只會用它向 %1$s 請求摘要。</string>
+    <string name="api_key">API Key</string>
+    <string name="initializing">正在初始化…</string>
+    <string name="init_failed">初始化失敗，請檢查網絡與金鑰後重試。</string>
+    <string name="init_incomplete">初始化未完成</string>
+
+    <!-- Settings -->
+    <string name="section_intercept">攔截</string>
+    <string name="global_intercept">全域</string>
+    <string name="global_intercept_on">攔截新聞網址，於正文打開前先出示擇要頁。</string>
+    <string name="global_intercept_off">開啟時會請求本機 VPN 權限。</string>
+    <string name="persistent">常駐</string>
+    <string name="persistent_hint">以前景服務保持攔截，並在重啟後嘗試恢復。系統可能會再問你略過電池優化。</string>
+    <string name="section_schedule">時段</string>
+    <string name="section_apps">特定 App</string>
+    <string name="section_permissions">權限</string>
+    <string name="section_click">點擊攔截（微信等）</string>
+    <string name="click_intercept">點擊攔截</string>
+    <string name="click_intercept_hint">預設關閉。開啟後會出現小型懸浮窗。點懸浮窗一次即「武裝」下一次點擊。微信與 Google 發現頁會優先抽出連結；微信若節點沒有網址，可先長按複製連結再點一次。需要無障礙與懸浮窗權限。</string>
+    <string name="click_consume">消耗原點擊</string>
+    <string name="click_consume_hint">預設關閉。開啟後，當擇要出現時會嘗試立刻返回，減少原頁面同時載入。部分 App 仍可能繼續跳轉。</string>
+    <string name="section_https">HTTPS 解密</string>
+    <string name="section_browser">預設瀏覽器</string>
+    <string name="section_color">顏色</string>
+    <string name="section_style">風格</string>
+    <string name="section_enter_pos">進入按鈕位置</string>
+    <string name="section_generate">生成</string>
+    <string name="section_cooldown">同網站冷卻</string>
+    <string name="cooldown_title">冷卻時間</string>
+    <string name="cooldown_current">目前：%1$s。同一網站在這段時間內不會再被攔截。</string>
+    <string name="cooldown_dialog_title">同網站冷卻</string>
+    <string name="cooldown_default">預設</string>
+    <string name="cd_10s">10 秒</string>
+    <string name="cd_30s">30 秒</string>
+    <string name="cd_1m">1 分鐘</string>
+    <string name="cd_2m">2 分鐘</string>
+    <string name="cd_3m">3 分鐘</string>
+    <string name="cd_5m">5 分鐘</string>
+    <string name="cd_10m">10 分鐘</string>
+
+    <!-- Other -->
+    <string name="section_ai">AI 服務</string>
+    <string name="other_ai_hint">目前使用 %1$s。金鑰只保存在這部裝置上，可在此重新設定服務商與 API Key。</string>
+    <string name="reconfigure_key">重新設定 API Key</string>
+    <string name="section_test">測試擇要</string>
+    <string name="other_test_hint">在尚未開啟攔截時，也可以貼上新聞網址預覽擇要頁。返回與進入會立即出現，摘要採流式輸出。</string>
+    <string name="news_url">新聞網址</string>
+    <string name="open_intercept">開啟擇要頁</string>
+    <string name="section_language">語言</string>
+    <string name="other_lang_hint">選擇介面語言。更改後部分文字會在下次進入相關頁面時更新。</string>
+    <string name="section_about">關於</string>
+    <string name="about_text">擇要 0.1.5\nWusper 相關應用。本機攔截新聞頁，以你自己的 AI 金鑰產生流式摘要。</string>
+
+    <!-- Main -->
+    <string name="recent_records">最近紀錄</string>
+    <string name="intercept_news">攔截新聞頁</string>
+
+    <!-- Intercept -->
+    <string name="brand_name">擇要</string>
 </resources>

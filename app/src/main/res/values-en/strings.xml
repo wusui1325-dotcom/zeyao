@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Zeyao</string>
+    <string name="accessibility_service_description">Zeyao reads the browser address bar so it can show a summary before a news page opens. Your API key never leaves the device (it is only sent to the AI provider you chose), and unrelated screen content is not collected.</string>
+    <string name="vpn_notification_title">Zeyao is intercepting news pages</string>
+    <string name="vpn_notification_text">Local VPN is on. Traffic is not sent to a remote server.</string>
+    <string name="accessibility_notification_hint">Enable Zeyao’s accessibility service in system settings to read full news URLs.</string>
+
+    <string name="back">Back</string>
+    <string name="continue_action">Continue</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+    <string name="done">Done</string>
+    <string name="enter">Open</string>
+    <string name="settings">Settings</string>
+    <string name="other">Other</string>
+
+    <string name="lang_title">Choose language</string>
+    <string name="lang_hint">You can change this later in Other.</string>
+    <string name="onboard_title">Read the key points before the article opens.</string>
+    <string name="onboard_provider_hint">Choose the AI provider for summaries. The key stays on this device only.</string>
+    <string name="onboard_reconfigure_title">Choose AI provider again</string>
+    <string name="onboard_key_title">Enter %1$s API Key</string>
+    <string name="onboard_key_hint">The key is stored encrypted on this device only. It is never written to source, logs, or the cloud. Zeyao uses it only to request summaries from %1$s.</string>
+    <string name="api_key">API Key</string>
+    <string name="initializing">Initializing…</string>
+    <string name="init_failed">Initialization failed. Check the network and key, then try again.</string>
+    <string name="init_incomplete">Initialization incomplete</string>
+
+    <string name="section_intercept">Intercept</string>
+    <string name="global_intercept">Global</string>
+    <string name="global_intercept_on">Intercept news URLs and show Zeyao before the article opens.</string>
+    <string name="global_intercept_off">Turning this on will request local VPN permission.</string>
+    <string name="persistent">Keep running</string>
+    <string name="persistent_hint">Keep intercepting as a foreground service and try to restore after reboot. The system may ask you to ignore battery optimization.</string>
+    <string name="section_schedule">Schedule</string>
+    <string name="section_apps">Specific apps</string>
+    <string name="section_permissions">Permissions</string>
+    <string name="section_click">Click intercept (WeChat, etc.)</string>
+    <string name="click_intercept">Click intercept</string>
+    <string name="click_intercept_hint">Off by default. When on, a small floating button appears. Tap it once to arm the next click. WeChat and Google Discover are preferred. If WeChat has no URL in the node, long-press to copy the link, then tap again. Requires accessibility and overlay permission.</string>
+    <string name="click_consume">Consume original click</string>
+    <string name="click_consume_hint">Off by default. When on, Zeyao tries to go back immediately so the original page is less likely to load. Some apps may still navigate.</string>
+    <string name="section_https">HTTPS decrypt</string>
+    <string name="section_browser">Default browser</string>
+    <string name="section_color">Color</string>
+    <string name="section_style">Style</string>
+    <string name="section_enter_pos">Enter button position</string>
+    <string name="section_generate">Generation</string>
+    <string name="section_cooldown">Same-site cooldown</string>
+    <string name="cooldown_title">Cooldown</string>
+    <string name="cooldown_current">Current: %1$s. The same site will not be intercepted again during this time.</string>
+    <string name="cooldown_dialog_title">Same-site cooldown</string>
+    <string name="cooldown_default">Default</string>
+    <string name="cd_10s">10 seconds</string>
+    <string name="cd_30s">30 seconds</string>
+    <string name="cd_1m">1 minute</string>
+    <string name="cd_2m">2 minutes</string>
+    <string name="cd_3m">3 minutes</string>
+    <string name="cd_5m">5 minutes</string>
+    <string name="cd_10m">10 minutes</string>
+
+    <string name="section_ai">AI service</string>
+    <string name="other_ai_hint">Currently using %1$s. The key stays on this device. You can reconfigure the provider and API key here.</string>
+    <string name="reconfigure_key">Reconfigure API Key</string>
+    <string name="section_test">Test Zeyao</string>
+    <string name="other_test_hint">Even when intercept is off, you can paste a news URL to preview the Zeyao page. Back and Open appear immediately; the summary streams in.</string>
+    <string name="news_url">News URL</string>
+    <string name="open_intercept">Open Zeyao page</string>
+    <string name="section_language">Language</string>
+    <string name="other_lang_hint">Choose the interface language. Some text updates the next time you open the related page.</string>
+    <string name="section_about">About</string>
+    <string name="about_text">Zeyao 0.1.5\nA Wusper app. Intercepts news pages locally and generates streaming summaries with your own AI key.</string>
+
+    <string name="recent_records">Recent records</string>
+    <string name="intercept_news">Intercept news pages</string>
+    <string name="brand_name">Zeyao</string>
+</resources>

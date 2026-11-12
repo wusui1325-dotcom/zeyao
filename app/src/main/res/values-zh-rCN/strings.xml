@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">择要</string>
+    <string name="accessibility_service_description">择要会读取浏览器地址栏中的网址，以便在新闻页面打开前先显示摘要。择要不会把你的 API 密钥送出装置以外的地方（仅用于你所选定的 AI 服务商），也不会收集无相关的画面内容。</string>
+    <string name="vpn_notification_title">择要正在拦截新闻页</string>
+    <string name="vpn_notification_text">本机 VPN 已开启，流量不会送往远程服务器。</string>
+    <string name="accessibility_notification_hint">请在系统设置中开启择要的无障碍服务，才能读取完整新闻网址。</string>
+
+    <string name="back">返回</string>
+    <string name="continue_action">继续</string>
+    <string name="cancel">取消</string>
+    <string name="ok">确定</string>
+    <string name="done">完成</string>
+    <string name="enter">进入</string>
+    <string name="settings">设置</string>
+    <string name="other">其他</string>
+
+    <string name="lang_title">选择语言 / Choose language</string>
+    <string name="lang_hint">之后可在「其他」中更改。</string>
+    <string name="onboard_title">打开新闻前，先读重点。</string>
+    <string name="onboard_provider_hint">请选择摘要使用的 AI 服务商。密钥只会保存在这部装置上。</string>
+    <string name="onboard_reconfigure_title">重新选择 AI 服务商</string>
+    <string name="onboard_key_title">输入 %1$s API Key</string>
+    <string name="onboard_key_hint">密钥以加密方式存在本机，不会写入原始码、日志或云端。择要只会用它向 %1$s 请求摘要。</string>
+    <string name="api_key">API Key</string>
+    <string name="initializing">正在初始化…</string>
+    <string name="init_failed">初始化失败，请检查网络与密钥后重试。</string>
+    <string name="init_incomplete">初始化未完成</string>
+
+    <string name="section_intercept">拦截</string>
+    <string name="global_intercept">全域</string>
+    <string name="global_intercept_on">拦截新闻网址，于正文打开前先出示择要页。</string>
+    <string name="global_intercept_off">开启时会请求本机 VPN 权限。</string>
+    <string name="persistent">常驻</string>
+    <string name="persistent_hint">以前台服务保持拦截，并在重启后尝试恢复。系统可能会再问你略过电池优化。</string>
+    <string name="section_schedule">时段</string>
+    <string name="section_apps">特定 App</string>
+    <string name="section_permissions">权限</string>
+    <string name="section_click">点击拦截（微信等）</string>
+    <string name="click_intercept">点击拦截</string>
+    <string name="click_intercept_hint">预设关闭。开启后会出现小型悬浮窗。点悬浮窗一次即「武装」下一次点击。微信与 Google 发现页会优先抽出链接；微信若节点没有网址，可先长按复制链接再点一次。需要无障碍与悬浮窗权限。</string>
+    <string name="click_consume">消耗原点击</string>
+    <string name="click_consume_hint">预设关闭。开启后，当择要出现时会尝试立刻返回，减少原页面同时加载。部分 App 仍可能继续跳转。</string>
+    <string name="section_https">HTTPS 解密</string>
+    <string name="section_browser">默认浏览器</string>
+    <string name="section_color">颜色</string>
+    <string name="section_style">风格</string>
+    <string name="section_enter_pos">进入按钮位置</string>
+    <string name="section_generate">生成</string>
+    <string name="section_cooldown">同网站冷却</string>
+    <string name="cooldown_title">冷却时间</string>
+    <string name="cooldown_current">目前：%1$s。同一网站在这段时间内不会再被拦截。</string>
+    <string name="cooldown_dialog_title">同网站冷却</string>
+    <string name="cooldown_default">默认</string>
+    <string name="cd_10s">10 秒</string>
+    <string name="cd_30s">30 秒</string>
+    <string name="cd_1m">1 分钟</string>
+    <string name="cd_2m">2 分钟</string>
+    <string name="cd_3m">3 分钟</string>
+    <string name="cd_5m">5 分钟</string>
+    <string name="cd_10m">10 分钟</string>
+
+    <string name="section_ai">AI 服务</string>
+    <string name="other_ai_hint">目前使用 %1$s。密钥只保存在这部装置上，可在此重新设定服务商与 API Key。</string>
+    <string name="reconfigure_key">重新设定 API Key</string>
+    <string name="section_test">测试择要</string>
+    <string name="other_test_hint">在尚未开启拦截时，也可以贴上新闻网址预览择要页。返回与进入会立即出现，摘要采用流式输出。</string>
+    <string name="news_url">新闻网址</string>
+    <string name="open_intercept">开启择要页</string>
+    <string name="section_language">语言</string>
+    <string name="other_lang_hint">选择界面语言。更改后部分文字会在下次进入相关页面时更新。</string>
+    <string name="section_about">关于</string>
+    <string name="about_text">择要 0.1.5\nWusper 相关应用。本机拦截新闻页，以你自己的 AI 密钥产生流式摘要。</string>
+
+    <string name="recent_records">最近记录</string>
+    <string name="intercept_news">拦截新闻页</string>
+    <string name="brand_name">择要</string>
+</resources>

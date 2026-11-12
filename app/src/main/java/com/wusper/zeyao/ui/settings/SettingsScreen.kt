@@ -43,6 +43,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.wusper.zeyao.R
 import com.wusper.zeyao.data.AppSettings
 import com.wusper.zeyao.data.EnterButtonPosition
 import com.wusper.zeyao.data.ThemeStyle
@@ -97,9 +99,9 @@ fun SettingsScreen(
             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TopAction("返回", onBack)
+            TopAction(stringResource(R.string.back), onBack)
             Spacer(Modifier.weight(1f))
-            Text("設置", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.settings), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.weight(1f))
             Spacer(Modifier.width(64.dp))
         }
@@ -170,7 +172,7 @@ fun SettingsScreen(
             )
 
 
-            SectionLabel("同網站冷卻")
+            SectionLabel(stringResource(R.string.section_cooldown))
             val cooldownLabel = cooldownLabel(settings.siteCooldownSeconds)
             Column(
                 Modifier
@@ -179,10 +181,10 @@ fun SettingsScreen(
                     .clickable { pickingCooldown = true }
                     .padding(vertical = 10.dp),
             ) {
-                Text("冷卻時間", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.cooldown_title), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "目前：$cooldownLabel。同一網站在這段時間內不會再被攔截。",
+                    stringResource(R.string.cooldown_current, cooldownLabel),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
