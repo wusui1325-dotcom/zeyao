@@ -77,16 +77,17 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         if (source != null) {
             try {
                 url = findUrlInNode(source)
+                if (url == null) url = findUrlInNodeDeep(source, depth = 0)
             } finally {
                 source.recycleSafely()
             }
         }
         if (url == null) {
-            // WeChat and many apps put the real URL only in a sibling or in the window text.
             val root = rootInActiveWindow
             if (root != null) {
                 try {
                     url = findUrlInNode(root)
+                    if (url == null) url = findUrlInNodeDeep(root, depth = 0)
                 } finally {
                     root.recycleSafely()
                 }
@@ -95,13 +96,10 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         if (url == null && isWeChatOrDiscover(pkg)) {
             url = readClipboardUrl()
         }
+        if (url == null && isWeChatOrDiscover(pkg)) {
+            url = findUrlFromEventText(event)
+        }
         if (url == null) {
-            val hint = when {
-                pkg == "com.tencent.mm" -> "微信這次節點沒有完整網址，可試長按複製連結後再點一次懸浮窗"
-                pkg == "com.google.android.googlequicksearchbox" -> "發現頁這次卡片沒有露出網址"
-                else -> "這次點擊的節點裡沒有完整網址"
-            }
-            android.widget.Toast.makeText(this, hint, android.widget.Toast.LENGTH_SHORT).show()
             return
         }
         InterceptController.clickArmed = false
@@ -111,8 +109,41 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         }
     }
 
+    private fun findUrlInNodeDeep(node: AccessibilityNodeInfo, depth: Int): String? {
+        if (depth > 12) return null
+        val direct = findUrlInNode(node)
+        if (direct != null) return direct
+        val count = node.childCount
+        for (i in 0 until count) {
+            val child = node.getChild(i) ?: continue
+            try {
+                val found = findUrlInNodeDeep(child, depth + 1)
+                if (found != null) return found
+            } finally {
+                child.recycleSafely()
+            }
+        }
+        return null
+    }
+
+    private fun findUrlFromEventText(event: AccessibilityEvent): String? {
+        val texts = event.text ?: return null
+        for (cs in texts) {
+            val s = cs?.toString() ?: continue
+            val url = extractUrl(s)
+            if (url != null) return url
+        }
+        val desc = event.contentDescription?.toString()
+        if (desc != null) {
+            return extractUrl(desc)
+        }
+        return null
+    }
+
     private fun isWeChatOrDiscover(pkg: String): Boolean =
-        pkg == "com.tencent.mm" || pkg == "com.google.android.googlequicksearchbox"
+        pkg == "com.tencent.mm" ||
+            pkg == "com.google.android.googlequicksearchbox" ||
+            pkg == "com.google.android.apps.magazines"
 
     private fun readClipboardUrl(): String? {
         return runCatching {

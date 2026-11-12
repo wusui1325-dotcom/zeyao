@@ -109,7 +109,9 @@ class ClickInterceptOverlay : Service() {
                 WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -137,7 +139,7 @@ class ClickInterceptOverlay : Service() {
                     tv.text = "擇"
                     InterceptController.clickArmed = false
                 }
-            }, 12_000)
+            }, 20_000)
         }
     }
 
@@ -153,32 +155,30 @@ class ClickInterceptOverlay : Service() {
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT < 26) return
         val nm = getSystemService(NotificationManager::class.java)
-        if (nm.getNotificationChannel(CHANNEL_ID) != null) return
+        // Recreate as silent so existing higher-importance channels stop heads-up.
+        nm.deleteNotificationChannel(CHANNEL_ID)
         val channel = NotificationChannel(
             CHANNEL_ID,
             "點擊攔截懸浮窗",
-            NotificationManager.IMPORTANCE_MIN,
+            NotificationManager.IMPORTANCE_NONE,
         ).apply {
             description = "保持擇要懸浮窗顯示"
             setShowBadge(false)
+            setSound(null, null)
+            enableVibration(false)
+            enableLights(false)
         }
         nm.createNotificationChannel(channel)
     }
 
     private fun buildNotification(): Notification {
-        val open = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("擇要點擊攔截")
-            .setContentText("懸浮窗已開啟，點一下武裝下一次點擊")
+            .setContentTitle("擇要")
+            .setSilent(true)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_MIN)
-            .setContentIntent(open)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .build()
     }
 
