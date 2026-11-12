@@ -173,7 +173,7 @@ fun SettingsScreen(
             SectionLabel("點擊攔截（微信等）")
             SettingSwitch(
                 title = "點擊攔截",
-                subtitle = "預設關閉。開啟後會出現小型懸浮窗。點懸浮窗一次即「武裝」下一次點擊；在微信等 App 裡點連結時，擇要會先出現。需要無障礙與懸浮窗權限。",
+                subtitle = "預設關閉。開啟後會出現小型懸浮窗。點懸浮窗一次即「武裝」下一次點擊。微信與 Google 發現頁會優先抽出連結；微信若節點沒有網址，可先長按複製連結再點一次。需要無障礙與懸浮窗權限。",
                 checked = settings.clickInterceptEnabled,
                 onChecked = onToggleClickIntercept,
             )

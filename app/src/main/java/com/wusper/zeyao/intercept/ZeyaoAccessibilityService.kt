@@ -92,12 +92,16 @@ class ZeyaoAccessibilityService : AccessibilityService() {
                 }
             }
         }
+        if (url == null && isWeChatOrDiscover(pkg)) {
+            url = readClipboardUrl()
+        }
         if (url == null) {
-            android.widget.Toast.makeText(
-                this,
-                "已武裝，但這次點擊的節點裡沒有完整網址",
-                android.widget.Toast.LENGTH_SHORT,
-            ).show()
+            val hint = when {
+                pkg == "com.tencent.mm" -> "微信這次節點沒有完整網址，可試長按複製連結後再點一次懸浮窗"
+                pkg == "com.google.android.googlequicksearchbox" -> "發現頁這次卡片沒有露出網址"
+                else -> "這次點擊的節點裡沒有完整網址"
+            }
+            android.widget.Toast.makeText(this, hint, android.widget.Toast.LENGTH_SHORT).show()
             return
         }
         InterceptController.clickArmed = false
@@ -105,6 +109,20 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         if (InterceptController.clickConsume) {
             performGlobalAction(GLOBAL_ACTION_BACK)
         }
+    }
+
+    private fun isWeChatOrDiscover(pkg: String): Boolean =
+        pkg == "com.tencent.mm" || pkg == "com.google.android.googlequicksearchbox"
+
+    private fun readClipboardUrl(): String? {
+        return runCatching {
+            val cm = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                ?: return null
+            val clip = cm.primaryClip ?: return null
+            if (clip.itemCount == 0) return null
+            val text = clip.getItemAt(0).coerceToText(this)?.toString().orEmpty()
+            extractUrl(text)
+        }.getOrNull()
     }
 
     private fun findUrlInNode(node: AccessibilityNodeInfo): String? {
@@ -210,7 +228,7 @@ class ZeyaoAccessibilityService : AccessibilityService() {
             Pattern.CASE_INSENSITIVE,
         )
         val URL_IN_TEXT: Pattern = Pattern.compile(
-            "(?:https?://)?[\\w.-]+\\.[a-zA-Z]{2,}(?::\\d+)?(?:/[\\w\\-._~!$&'()*+,;=:@/%?#=]*)?",
+            "(?:https?://)?(?:[\\w.-]+\\.)?(?:mp\\.weixin\\.qq\\.com|news\\.google\\.com|weixin\\.qq\\.com|[\\w.-]+\\.[a-zA-Z]{2,})(?::\\d+)?(?:/[\\w\\-._~!$&'()*+,;=:@/%?#=]*)?",
             Pattern.CASE_INSENSITIVE,
         )
     }
