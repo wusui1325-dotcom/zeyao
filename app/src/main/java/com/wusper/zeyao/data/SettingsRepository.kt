@@ -44,6 +44,7 @@ class SettingsRepository(private val context: Context) {
             prefs[HTTPS_DECRYPT] = next.httpsDecryptEnabled
             prefs[CLICK_INTERCEPT] = next.clickInterceptEnabled
             prefs[CLICK_CONSUME] = next.clickInterceptConsume
+            prefs[SITE_COOLDOWN] = next.siteCooldownSeconds
         }
     }
 
@@ -103,6 +104,7 @@ class SettingsRepository(private val context: Context) {
         httpsDecryptEnabled = this[HTTPS_DECRYPT] ?: false,
         clickInterceptEnabled = this[CLICK_INTERCEPT] ?: false,
         clickInterceptConsume = this[CLICK_CONSUME] ?: false,
+        siteCooldownSeconds = this[SITE_COOLDOWN] ?: 600,
     )
 
     private companion object {
@@ -124,5 +126,6 @@ class SettingsRepository(private val context: Context) {
         val HTTPS_DECRYPT = booleanPreferencesKey("https_decrypt")
         val CLICK_INTERCEPT = booleanPreferencesKey("click_intercept")
         val CLICK_CONSUME = booleanPreferencesKey("click_intercept_consume")
+        val SITE_COOLDOWN = intPreferencesKey("site_cooldown_seconds")
     }
 }

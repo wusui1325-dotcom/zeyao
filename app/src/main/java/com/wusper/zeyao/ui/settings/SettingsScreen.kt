@@ -84,6 +84,7 @@ fun SettingsScreen(
     var pickingStart by remember { mutableStateOf(false) }
     var pickingEnd by remember { mutableStateOf(false) }
     var pickingBrowser by remember { mutableStateOf(false) }
+    var pickingCooldown by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     Column(
@@ -168,6 +169,24 @@ fun SettingsScreen(
                 onClick = onOpenAccessibilitySettings,
             )
 
+
+            SectionLabel("同網站冷卻")
+            val cooldownLabel = cooldownLabel(settings.siteCooldownSeconds)
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable { pickingCooldown = true }
+                    .padding(vertical = 10.dp),
+            ) {
+                Text("冷卻時間", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "目前：$cooldownLabel。同一網站在這段時間內不會再被攔截。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             Spacer(Modifier.height(8.dp))
             SectionLabel("點擊攔截（微信等）")
@@ -350,6 +369,16 @@ fun SettingsScreen(
             onConfirm = { pkg ->
                 onUpdate { it.copy(handoffBrowserPackage = pkg) }
                 pickingBrowser = false
+            },
+        )
+    }
+    if (pickingCooldown) {
+        CooldownPickerDialog(
+            selected = settings.siteCooldownSeconds,
+            onDismiss = { pickingCooldown = false },
+            onConfirm = { seconds ->
+                onUpdate { it.copy(siteCooldownSeconds = seconds) }
+                pickingCooldown = false
             },
         )
     }
@@ -541,6 +570,49 @@ private fun BrowserPickerDialog(
                         subtitle = pkg,
                         selected = pkg == selected,
                         onClick = { onConfirm(pkg) },
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
+private fun cooldownLabel(seconds: Int): String = when (seconds) {
+    10 -> "10 秒"
+    30 -> "30 秒"
+    60 -> "1 分鐘"
+    120 -> "2 分鐘"
+    180 -> "3 分鐘"
+    300 -> "5 分鐘"
+    600 -> "10 分鐘"
+    else -> "${seconds} 秒"
+}
+
+@Composable
+private fun CooldownPickerDialog(
+    selected: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit,
+) {
+    val options = listOf(10, 30, 60, 120, 180, 300, 600)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("同網站冷卻") },
+        text = {
+            Column(
+                Modifier
+                    .height(360.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                options.forEach { seconds ->
+                    ChoiceRow(
+                        title = cooldownLabel(seconds),
+                        subtitle = if (seconds == 600) "預設" else null,
+                        selected = seconds == selected,
+                        onClick = { onConfirm(seconds) },
                     )
                 }
             }

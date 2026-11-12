@@ -55,7 +55,10 @@ object InterceptController {
     private const val COOLDOWN_MS = 3 * 60 * 1000L
     private const val DUP_WINDOW_MS = 2_000L
     private const val ENTER_SUPPRESS_MS = 12_000L
-    private const val NOT_NEWS_COOLDOWN_MS = 10 * 60 * 1000L
+    private const val DEFAULT_SITE_COOLDOWN_MS = 10 * 60 * 1000L
+
+    @Volatile
+    private var siteCooldownMs: Long = DEFAULT_SITE_COOLDOWN_MS
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var app: ZeyaoApp
@@ -110,6 +113,7 @@ object InterceptController {
             app.settings.settings.collect { settings ->
                 interceptArmedCached = app.settings.isInterceptArmed(settings)
                 httpsDecryptCached = settings.httpsDecryptEnabled
+                siteCooldownMs = settings.siteCooldownSeconds.coerceIn(10, 600).toLong() * 1000L
                 refreshCaInstalled()
             }
         }
@@ -151,7 +155,7 @@ object InterceptController {
 
     private fun markAllowed(url: String) {
         val now = SystemClock.elapsedRealtime()
-        urlCooldownUntil[NewsHosts.canonicalUrl(url)] = now + COOLDOWN_MS
+        urlCooldownUntil[NewsHosts.canonicalUrl(url)] = now + siteCooldownMs
         suppressUntilElapsed = now + ENTER_SUPPRESS_MS
     }
 
@@ -183,7 +187,7 @@ object InterceptController {
         if (url.isBlank()) return
         val key = NewsHosts.canonicalUrl(url)
         NewsClassifier.remember(key, false)
-        urlCooldownUntil[key] = SystemClock.elapsedRealtime() + NOT_NEWS_COOLDOWN_MS
+        urlCooldownUntil[key] = SystemClock.elapsedRealtime() + siteCooldownMs
         releaseDocumentHolds(url)
     }
 
@@ -344,7 +348,7 @@ object InterceptController {
         val session = _sessions.value[sessionId] ?: return
         updateSession(sessionId) { it.copy(decided = true) }
         markAllowed(session.url)
-        hostPassthroughUntil[session.host.lowercase()] = SystemClock.elapsedRealtime() + COOLDOWN_MS
+        hostPassthroughUntil[session.host.lowercase()] = SystemClock.elapsedRealtime() + siteCooldownMs
         releaseHolds(session.host)
         maybeCancelOnExit(sessionId)
         scope.launch(Dispatchers.Main) {

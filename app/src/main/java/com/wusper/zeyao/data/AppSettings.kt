@@ -32,6 +32,8 @@ data class AppSettings(
     val clickInterceptEnabled: Boolean = false,
     /** When click intercept is armed, whether to try to consume (block) the original click. Default off. */
     val clickInterceptConsume: Boolean = false,
+    /** Same-site cooldown in seconds. Default 10 minutes. */
+    val siteCooldownSeconds: Int = 600,
 )
 
 enum class ThemeStyle { FOLLOW_SYSTEM, DARK, LIGHT }
