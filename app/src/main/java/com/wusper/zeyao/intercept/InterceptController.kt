@@ -180,7 +180,10 @@ object InterceptController {
     fun onUrlDetected(url: String, title: String? = null, packageName: String? = null) {
         if (!::app.isInitialized) return
         val clean = sanitizeUrl(url) ?: return
-        beginVerify(clean, title.orEmpty(), packageName, startFrom = null, handoffIfNotNews = false)
+        scope.launch {
+            val resolved = com.wusper.zeyao.data.RedirectResolver.resolve(clean)
+            beginVerify(resolved, title.orEmpty(), packageName, startFrom = null, handoffIfNotNews = false)
+        }
     }
 
     fun markNotNews(url: String) {

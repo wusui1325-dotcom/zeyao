@@ -153,6 +153,8 @@ object NewsHosts {
                 (host == "google.com" || host.endsWith(".google.com")) &&
                     (path == "/url" || path == "/url/" || path == "/news/url") ->
                     uri.getQueryParameter("q") ?: uri.getQueryParameter("url") ?: uri.getQueryParameter("u")
+                host == "share.google" || host.endsWith(".share.google") ->
+                    uri.getQueryParameter("url") ?: uri.getQueryParameter("q")
                 host.endsWith("facebook.com") && (path.contains("/l.php") || path == "/l.php") ->
                     uri.getQueryParameter("u")
                 host.endsWith("instagram.com") && path.contains("/l.php") ->

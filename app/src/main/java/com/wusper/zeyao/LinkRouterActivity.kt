@@ -38,21 +38,22 @@ class LinkRouterActivity : Activity() {
             val app = application as ZeyaoApp
             val settings = withContext(Dispatchers.IO) { app.settings.current() }
             val url = NewsHosts.unwrapUrl(raw)
+            val resolved = com.wusper.zeyao.data.RedirectResolver.resolve(url)
             val armed = app.settings.isInterceptArmed(settings)
-            val cooled = InterceptController.isUrlCooled(url)
-            val intercept = armed && !cooled && (settings.interceptAllPages || NewsHosts.isClassifiableUrl(url))
+            val cooled = InterceptController.isUrlCooled(resolved)
+            val intercept = armed && !cooled && (settings.interceptAllPages || NewsHosts.isClassifiableUrl(resolved))
             if (intercept) {
                 if (settings.interceptAllPages && settings.askBeforeSummary) {
                     startActivity(
                         Intent(this@LinkRouterActivity, AskInterceptActivity::class.java).apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
-                            putExtra(AskInterceptActivity.EXTRA_URL, url)
+                            putExtra(AskInterceptActivity.EXTRA_URL, resolved)
                             putExtra(AskInterceptActivity.EXTRA_TITLE, "")
                             putExtra(AskInterceptActivity.EXTRA_PACKAGE, callingPackage)
                         },
                     )
                 } else if (settings.interceptAllPages) {
-                    InterceptController.startOrRefine(url, title = "", packageName = callingPackage, startFrom = this@LinkRouterActivity)
+                    InterceptController.startOrRefine(resolved, title = "", packageName = callingPackage, startFrom = this@LinkRouterActivity)
                 } else {
                     startActivity(
                         Intent(this@LinkRouterActivity, VerifyActivity::class.java).apply {
@@ -60,7 +61,7 @@ class LinkRouterActivity : Activity() {
                                 Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
                                 Intent.FLAG_ACTIVITY_NO_ANIMATION or
                                 Intent.FLAG_ACTIVITY_SINGLE_TOP
-                            putExtra(VerifyActivity.EXTRA_URL, url)
+                            putExtra(VerifyActivity.EXTRA_URL, resolved)
                             putExtra(VerifyActivity.EXTRA_TITLE, "")
                             putExtra(VerifyActivity.EXTRA_PACKAGE, callingPackage)
                             putExtra(VerifyActivity.EXTRA_HANDOFF, true)

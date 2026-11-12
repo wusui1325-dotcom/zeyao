@@ -74,7 +74,7 @@
     <string name="section_language">語言</string>
     <string name="other_lang_hint">選擇介面語言。更改後部分文字會在下次進入相關頁面時更新。</string>
     <string name="section_about">關於</string>
-    <string name="about_text">擇要 1.3.0\nWusper 相關應用。本機攔截新聞頁，以你自己的 AI 金鑰產生流式摘要。</string>
+    <string name="about_text">擇要 1.4.0\nWusper 相關應用。本機攔截新聞頁，以你自己的 AI 金鑰產生流式摘要。</string>
 
     <!-- Main -->
     <string name="recent_records">最近紀錄</string>
