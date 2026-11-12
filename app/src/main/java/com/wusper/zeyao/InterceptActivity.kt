@@ -20,6 +20,7 @@ import com.wusper.zeyao.intercept.InterceptController
 import com.wusper.zeyao.intercept.InterceptSession
 import com.wusper.zeyao.ui.intercept.InterceptScreen
 import com.wusper.zeyao.ui.theme.ZeyaoTheme
+import kotlinx.coroutines.launch
 
 class InterceptActivity : ComponentActivity() {
     private var sessionId: String = ""
