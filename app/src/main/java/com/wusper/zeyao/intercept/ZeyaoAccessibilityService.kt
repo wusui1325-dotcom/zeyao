@@ -26,6 +26,13 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         InterceptController.accessibility = this
         defaultBrowser = runCatching { DefaultBrowser.packageName(this) }.getOrNull()
+        // Refresh the consume flag once on connect.
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                InterceptController.clickConsume =
+                    ZeyaoApp.instance.settings.current().clickInterceptConsume
+            }
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -76,10 +83,7 @@ class ZeyaoAccessibilityService : AccessibilityService() {
             val url = findUrlInNode(source) ?: return
             InterceptController.clickArmed = false
             InterceptController.onUrlDetected(url, title = "", packageName = pkg)
-            val consume = runCatching {
-                ZeyaoApp.instance.settings.current().clickInterceptConsume
-            }.getOrDefault(false)
-            if (consume) {
+            if (InterceptController.clickConsume) {
                 // Best-effort: go back so the original navigation is less likely to proceed.
                 performGlobalAction(GLOBAL_ACTION_BACK)
             }

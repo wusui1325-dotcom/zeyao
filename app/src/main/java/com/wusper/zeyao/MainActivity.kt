@@ -162,7 +162,10 @@ class MainActivity : ComponentActivity() {
                                     scope.launch { handleClickInterceptToggle(enabled) }
                                 },
                                 onToggleClickConsume = { enabled ->
-                                    scope.launch { app.settings.setClickInterceptConsume(enabled) }
+                                    scope.launch {
+                                        app.settings.setClickInterceptConsume(enabled)
+                                        com.wusper.zeyao.intercept.InterceptController.clickConsume = enabled
+                                    }
                                 },
                             )
                         }

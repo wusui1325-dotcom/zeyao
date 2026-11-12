@@ -86,6 +86,10 @@ object InterceptController {
     @Volatile
     var clickArmed: Boolean = false
 
+    /** Whether to attempt to consume the original click after intercept. */
+    @Volatile
+    var clickConsume: Boolean = false
+
     @Volatile
     var interceptArmedCached: Boolean = false
         private set
