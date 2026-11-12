@@ -2,21 +2,24 @@ package com.wusper.zeyao.intercept
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import java.util.ArrayDeque
+import com.wusper.zeyao.ZeyaoApp
+import java.io.File
 
 /**
- * Experimental: take a screenshot every second while image recognition is on.
- * Keeps at most 3 bitmaps. The intercept flow uses the previous one.
+ * Experimental: screenshot every second into the app's private files dir.
+ * Keeps at most 3 files; the oldest is deleted when the limit is exceeded.
+ * Nothing is uploaded until the intercept flow explicitly asks for the previous frame.
  */
 object ScreenshotBuffer {
     private const val MAX = 3
     private const val INTERVAL_MS = 1000L
+    private const val DIR = "screenshots"
 
     private val handler = Handler(Looper.getMainLooper())
-    private val frames = ArrayDeque<Bitmap>(MAX)
     private var running = false
 
     @Volatile
@@ -26,11 +29,22 @@ object ScreenshotBuffer {
             if (value) start() else stop()
         }
 
-    fun latest(): Bitmap? = synchronized(frames) { frames.peekLast() }
-
-    fun previous(): Bitmap? = synchronized(frames) {
-        if (frames.size >= 2) frames.elementAt(frames.size - 2) else frames.peekLast()
+    fun previous(): Bitmap? {
+        val files = listFiles()
+        val file = if (files.size >= 2) files[files.size - 2] else files.lastOrNull()
+        return file?.let { runCatching { BitmapFactory.decodeFile(it.absolutePath) }.getOrNull() }
     }
+
+    private fun dir(): File {
+        val d = File(ZeyaoApp.instance.filesDir, DIR)
+        if (!d.exists()) d.mkdirs()
+        return d
+    }
+
+    private fun listFiles(): List<File> =
+        dir().listFiles { f -> f.isFile && f.name.endsWith(".jpg") }
+            ?.sortedBy { it.lastModified() }
+            .orEmpty()
 
     private val tick = object : Runnable {
         override fun run() {
@@ -52,10 +66,7 @@ object ScreenshotBuffer {
     private fun stop() {
         running = false
         handler.removeCallbacks(tick)
-        synchronized(frames) {
-            frames.forEach { runCatching { it.recycle() } }
-            frames.clear()
-        }
+        listFiles().forEach { runCatching { it.delete() } }
     }
 
     private fun capture(service: AccessibilityService) {
@@ -70,7 +81,7 @@ object ScreenshotBuffer {
                             Bitmap.wrapHardwareBuffer(buffer, result.colorSpace)?.copy(Bitmap.Config.ARGB_8888, false)
                         }
                         result.hardwareBuffer.close()
-                        if (bmp != null) add(bmp)
+                        if (bmp != null) save(bmp)
                     }
 
                     override fun onFailure(errorCode: Int) = Unit
@@ -79,11 +90,16 @@ object ScreenshotBuffer {
         }
     }
 
-    private fun add(bmp: Bitmap) {
-        synchronized(frames) {
-            frames.addLast(bmp)
-            while (frames.size > MAX) {
-                runCatching { frames.removeFirst().recycle() }
+    private fun save(bmp: Bitmap) {
+        runCatching {
+            val file = File(dir(), "${System.currentTimeMillis()}.jpg")
+            file.outputStream().use { out ->
+                bmp.compress(Bitmap.CompressFormat.JPEG, 70, out)
+            }
+            bmp.recycle()
+            val files = listFiles()
+            if (files.size > MAX) {
+                files.take(files.size - MAX).forEach { runCatching { it.delete() } }
             }
         }
     }

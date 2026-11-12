@@ -338,7 +338,7 @@ fun SettingsScreen(
             var showImageWarn by remember { mutableStateOf(false) }
             SettingSwitch(
                 title = "圖片辨識",
-                subtitle = "預設關閉。開啟後每秒截圖（最多 3 張），VPN 偵測到網頁時把上一張送給最便宜模型抽標題或連結，再搜一次塞進擇要。",
+                subtitle = "預設關閉。開啟後每秒截圖存到 app 私有目錄（最多 3 張，超出刪最舊）。只有 VPN 偵測到網頁時，才把上一張送給最便宜模型抽標題或連結，再搜一次塞進擇要。",
                 checked = settings.imageRecognitionEnabled,
                 onChecked = { enabled ->
                     if (enabled) showImageWarn = true
@@ -352,7 +352,7 @@ fun SettingsScreen(
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { showImageWarn = false },
                     title = { Text("開啟圖片辨識？") },
-                    text = { Text("這是實驗功能。開啟後會每秒截圖，並在攔截新聞時把截圖上傳到你的 AI API（最便宜模型）以抽出標題或連結。會消耗額度，且截圖會離開裝置。") },
+                    text = { Text("這是實驗功能。開啟後會每秒截圖並存在這部裝置的 app 私有目錄（最多 3 張）。只有在攔截新聞時，才會把上一張截圖上傳到你的 AI API（最便宜模型）以抽出標題或連結。") },
                     confirmButton = {
                         androidx.compose.material3.TextButton(onClick = {
                             onUpdate { it.copy(imageRecognitionEnabled = true) }
