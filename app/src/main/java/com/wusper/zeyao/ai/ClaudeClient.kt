@@ -111,7 +111,7 @@ class ClaudeClient : AiClient {
                 "messages",
                 JSONArray().put(
                     JSONObject().put("role", "user")
-                        .put("content", SummaryPrompt.build(title, url, articleText)),
+                        .put("content", SummaryPrompt.build(title, url, articleText, params.language, params.summaryLength, params.searchNews)),
                 ),
             )
             .toString()

@@ -36,7 +36,13 @@ data class AppSettings(
     val siteCooldownSeconds: Int = 600,
     /** UI language. Default Traditional Chinese. */
     val language: AppLanguage = AppLanguage.TRADITIONAL,
+    /** Preferred summary length. */
+    val summaryLength: SummaryLength = SummaryLength.NORMAL,
+    /** When on, regenerate/shorter/longer will ask the model to search before summarizing. */
+    val searchNewsEnabled: Boolean = false,
 )
+
+enum class SummaryLength { SHORT, NORMAL, LONG }
 
 enum class AppLanguage(val tag: String, val nativeName: String) {
     SIMPLIFIED("zh-CN", "简体中文"),

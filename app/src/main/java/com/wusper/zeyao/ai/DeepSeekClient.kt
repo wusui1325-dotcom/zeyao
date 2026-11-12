@@ -86,7 +86,15 @@ class DeepSeekClient : AiClient {
             .put(
                 "messages",
                 JSONArray().put(
-                    JSONObject().put("role", "user").put("content", SummaryPrompt.build(title, url, articleText)),
+                    JSONObject().put("role", "user").put(
+                        "content",
+                        SummaryPrompt.build(
+                            title, url, articleText,
+                            language = params.language,
+                            length = params.summaryLength,
+                            searchNews = params.searchNews,
+                        ),
+                    ),
                 ),
             )
             .put("thinking", JSONObject().put("type", thinkingType))

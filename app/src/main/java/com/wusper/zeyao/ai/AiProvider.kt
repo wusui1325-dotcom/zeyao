@@ -49,6 +49,9 @@ data class GenerationParams(
     val temperature: Double = 1.2,
     val maxTokens: Int = 1000,
     val stream: Boolean = true,
+    val language: com.wusper.zeyao.data.AppLanguage = com.wusper.zeyao.data.AppLanguage.TRADITIONAL,
+    val summaryLength: com.wusper.zeyao.data.SummaryLength = com.wusper.zeyao.data.SummaryLength.NORMAL,
+    val searchNews: Boolean = false,
 ) {
     companion object {
         val DEFAULT = GenerationParams()

@@ -117,4 +117,12 @@
     <string name="apps_clear">全部（清空）</string>
     <string name="actual_browser">实际浏览器</string>
     <string name="extracting">正在提取与择要…</string>
+    <string name="retry">重试</string>
+    <string name="search_news">搜索新闻</string>
+    <string name="shorter">→更短←</string>
+    <string name="longer">更←→长</string>
+    <string name="section_summary">摘要偏好</string>
+    <string name="pref_length">默认长度</string>
+    <string name="pref_search">默认开启搜索</string>
+    <string name="pref_search_hint">开启后，择要前会提示模型核对新闻重点、标题与关键词。</string>
 </resources>

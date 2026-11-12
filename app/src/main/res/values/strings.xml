@@ -125,4 +125,12 @@
     <string name="apps_clear">全部（清空）</string>
     <string name="actual_browser">實際瀏覽器</string>
     <string name="extracting">正在擷取與擇要…</string>
+    <string name="retry">重試</string>
+    <string name="search_news">搜索新聞</string>
+    <string name="shorter">→更短←</string>
+    <string name="longer">更←→長</string>
+    <string name="section_summary">摘要偏好</string>
+    <string name="pref_length">預設長度</string>
+    <string name="pref_search">預設開啟搜索</string>
+    <string name="pref_search_hint">開啟後，擇要前會提示模型核對新聞重點、標題與關鍵詞。</string>
 </resources>

@@ -309,6 +309,32 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
+            SectionLabel(stringResource(R.string.section_summary))
+            ChoiceRow(
+                title = stringResource(R.string.pref_length),
+                subtitle = when (settings.summaryLength) {
+                    com.wusper.zeyao.data.SummaryLength.SHORT -> stringResource(R.string.shorter)
+                    com.wusper.zeyao.data.SummaryLength.NORMAL -> "一般"
+                    com.wusper.zeyao.data.SummaryLength.LONG -> stringResource(R.string.longer)
+                },
+                selected = false,
+                onClick = {
+                    val next = when (settings.summaryLength) {
+                        com.wusper.zeyao.data.SummaryLength.SHORT -> com.wusper.zeyao.data.SummaryLength.NORMAL
+                        com.wusper.zeyao.data.SummaryLength.NORMAL -> com.wusper.zeyao.data.SummaryLength.LONG
+                        com.wusper.zeyao.data.SummaryLength.LONG -> com.wusper.zeyao.data.SummaryLength.SHORT
+                    }
+                    onUpdate { it.copy(summaryLength = next) }
+                },
+            )
+            SettingSwitch(
+                title = stringResource(R.string.pref_search),
+                subtitle = stringResource(R.string.pref_search_hint),
+                checked = settings.searchNewsEnabled,
+                onChecked = { enabled -> onUpdate { it.copy(searchNewsEnabled = enabled) } },
+            )
+
+            Spacer(Modifier.height(8.dp))
             SectionLabel(stringResource(R.string.section_generate))
             SettingSwitch(
                 title = stringResource(R.string.continue_on_exit),

@@ -117,4 +117,12 @@
     <string name="apps_clear">All (clear)</string>
     <string name="actual_browser">Actual browser</string>
     <string name="extracting">Extracting and summarizing…</string>
+    <string name="retry">Retry</string>
+    <string name="search_news">Search news</string>
+    <string name="shorter">Shorter</string>
+    <string name="longer">Longer</string>
+    <string name="section_summary">Summary preferences</string>
+    <string name="pref_length">Default length</string>
+    <string name="pref_search">Search by default</string>
+    <string name="pref_search_hint">When on, the model is asked to verify key points, titles, and keywords before summarizing.</string>
 </resources>

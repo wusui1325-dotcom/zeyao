@@ -369,6 +369,19 @@ object InterceptController {
         }
     }
 
+    fun regenerate(
+        sessionId: String,
+        length: com.wusper.zeyao.data.SummaryLength? = null,
+        search: Boolean? = null,
+    ) {
+        val session = _sessions.value[sessionId] ?: return
+        jobs[sessionId]?.cancel()
+        updateSession(sessionId) { it.copy(summary = "", streaming = true, error = null) }
+        jobs[sessionId] = scope.launch {
+            beginGeneration(sessionId, session.url, session.title, session.host, length, search)
+        }
+    }
+
     fun maybeCancelOnExit(sessionId: String) {
         scope.launch {
             val continueOnExit = app.settings.current().continueOnExit
@@ -383,7 +396,14 @@ object InterceptController {
         }
     }
 
-    private fun beginGeneration(id: String, url: String, title: String, host: String) {
+    private fun beginGeneration(
+        id: String,
+        url: String,
+        title: String,
+        host: String,
+        lengthOverride: com.wusper.zeyao.data.SummaryLength? = null,
+        searchOverride: Boolean? = null,
+    ) {
         jobs[id]?.cancel()
         jobs[id] = scope.launch {
             // If we only have a bare host, wait briefly for accessibility to supply the path.
@@ -443,7 +463,11 @@ object InterceptController {
                     title = workingTitle,
                     url = workingUrl,
                     articleText = article?.text.orEmpty(),
-                    params = GenerationParams.DEFAULT,
+                    params = GenerationParams(
+                        language = settings.language,
+                        summaryLength = lengthOverride ?: settings.summaryLength,
+                        searchNews = searchOverride ?: settings.searchNewsEnabled,
+                    ),
                 ).collect { delta ->
                     if (delta.isEmpty()) return@collect
                     var snapshot: InterceptSession? = null

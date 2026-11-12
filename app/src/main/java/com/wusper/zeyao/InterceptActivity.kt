@@ -10,6 +10,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
@@ -50,6 +51,7 @@ class InterceptActivity : ComponentActivity() {
         )
         setContent {
             val app = ZeyaoApp.instance
+            val scope = rememberCoroutineScope()
             val settings by app.settings.settings.collectAsState(initial = AppSettings())
             val flow = remember(sessionId) { InterceptController.sessionFlow(sessionId) }
             val live by flow.collectAsState()
@@ -65,8 +67,23 @@ class InterceptActivity : ComponentActivity() {
                     InterceptScreen(
                         session = session,
                         buttonPosition = settings.enterButtonPosition,
+                        searchEnabled = settings.searchNewsEnabled,
                         onBack = { decideBack(session.id) },
                         onEnter = { decideEnter(session.id) },
+                        onShorter = {
+                            InterceptController.regenerate(session.id, length = com.wusper.zeyao.data.SummaryLength.SHORT)
+                        },
+                        onLonger = {
+                            InterceptController.regenerate(session.id, length = com.wusper.zeyao.data.SummaryLength.LONG)
+                        },
+                        onRetry = {
+                            InterceptController.regenerate(session.id)
+                        },
+                        onToggleSearch = { enabled ->
+                            scope.launch {
+                                app.settings.update { it.copy(searchNewsEnabled = enabled) }
+                            }
+                        },
                     )
                 }
             }

@@ -46,6 +46,8 @@ class SettingsRepository(private val context: Context) {
             prefs[CLICK_CONSUME] = next.clickInterceptConsume
             prefs[SITE_COOLDOWN] = next.siteCooldownSeconds
             prefs[LANGUAGE] = next.language.tag
+            prefs[SUMMARY_LENGTH] = next.summaryLength.name
+            prefs[SEARCH_NEWS] = next.searchNewsEnabled
         }
     }
 
@@ -107,6 +109,9 @@ class SettingsRepository(private val context: Context) {
         clickInterceptConsume = this[CLICK_CONSUME] ?: false,
         siteCooldownSeconds = this[SITE_COOLDOWN] ?: 600,
         language = AppLanguage.fromTag(this[LANGUAGE]),
+        summaryLength = runCatching { SummaryLength.valueOf(this[SUMMARY_LENGTH] ?: "NORMAL") }
+            .getOrDefault(SummaryLength.NORMAL),
+        searchNewsEnabled = this[SEARCH_NEWS] ?: false,
     )
 
     private companion object {
@@ -130,5 +135,7 @@ class SettingsRepository(private val context: Context) {
         val CLICK_CONSUME = booleanPreferencesKey("click_intercept_consume")
         val SITE_COOLDOWN = intPreferencesKey("site_cooldown_seconds")
         val LANGUAGE = stringPreferencesKey("language")
+        val SUMMARY_LENGTH = stringPreferencesKey("summary_length")
+        val SEARCH_NEWS = booleanPreferencesKey("search_news")
     }
 }

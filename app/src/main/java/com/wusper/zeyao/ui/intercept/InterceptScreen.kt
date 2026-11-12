@@ -35,8 +35,13 @@ import com.wusper.zeyao.intercept.InterceptSession
 fun InterceptScreen(
     session: InterceptSession,
     buttonPosition: EnterButtonPosition,
+    searchEnabled: Boolean,
     onBack: () -> Unit,
     onEnter: () -> Unit,
+    onShorter: () -> Unit,
+    onLonger: () -> Unit,
+    onRetry: () -> Unit,
+    onToggleSearch: (Boolean) -> Unit,
 ) {
     val host = session.host.ifBlank {
         runCatching { Uri.parse(session.url).host.orEmpty() }.getOrDefault("")
@@ -90,9 +95,41 @@ fun InterceptScreen(
                 Spacer(Modifier.height(24.dp))
             }
         }
-        // Buttons are part of the first frame and never wait on the model or fetch.
+        // Action row: shorter / longer / retry / search
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SmallAction("→更短←", onShorter)
+            SmallAction("更←→長", onLonger)
+            SmallAction(stringResource(R.string.retry), onRetry)
+            Spacer(Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.search_news),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                androidx.compose.material3.Switch(
+                    checked = searchEnabled,
+                    onCheckedChange = onToggleSearch,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
+            }
+        }
         ButtonBar(position = buttonPosition, onBack = onBack, onEnter = onEnter)
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun SmallAction(text: String, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.height(36.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+    ) {
+        Text(text, style = MaterialTheme.typography.labelMedium)
     }
 }
 
