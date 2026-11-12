@@ -70,7 +70,7 @@
     <string name="section_language">语言</string>
     <string name="other_lang_hint">选择界面语言。更改后部分文字会在下次进入相关页面时更新。</string>
     <string name="section_about">关于</string>
-    <string name="about_text">择要 1.0.0\nWusper 相关应用。本机拦截新闻页，以你自己的 AI 密钥产生流式摘要。</string>
+    <string name="about_text">择要 1.0.1\nWusper 相关应用。本机拦截新闻页，以你自己的 AI 密钥产生流式摘要。</string>
 
     <string name="recent_records">最近记录</string>
     <string name="intercept_news">拦截新闻页</string>
