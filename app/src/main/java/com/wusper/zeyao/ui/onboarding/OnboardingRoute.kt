@@ -265,7 +265,7 @@ private fun KeyStep(
     Column(Modifier.fillMaxSize()) {
         BrandMark(small = true)
         Spacer(Modifier.height(28.dp))
-        Text("輸入 ${provider.displayName} API Key", style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(R.string.onboard_key_title, provider.displayName), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
         Text(
             "金鑰以加密方式存在本機，不會寫入原始碼、日誌或雲端。擇要只會用它向 ${provider.displayName} 請求摘要。",
@@ -277,7 +277,7 @@ private fun KeyStep(
             value = key,
             onValueChange = onKeyChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("API Key") },
+            label = { Text(stringResource(R.string.api_key)) },
             placeholder = { Text(provider.keyHint) },
             singleLine = true,
             visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
@@ -328,7 +328,7 @@ private fun LoadingStep(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            Text("初始化未完成", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.init_incomplete), style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(12.dp))
             Text(
                 error,

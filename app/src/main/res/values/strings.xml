@@ -82,4 +82,47 @@
 
     <!-- Intercept -->
     <string name="brand_name">擇要</string>
+
+    <!-- Settings remaining -->
+    <string name="schedule_enabled">特定時段</string>
+    <string name="schedule_hint">只在選定的星期與時段攔截。跨日（例如 22:00–07:00）也支援。</string>
+    <string name="schedule_start">開始 %1$s</string>
+    <string name="schedule_end">結束 %1$s</string>
+    <string name="apps_all">目前：全部 App。點此選擇只攔截特定 App。</string>
+    <string name="apps_selected">目前：已選 %1$d 個 App。清空後視為全部。</string>
+    <string name="perm_vpn">本機 VPN</string>
+    <string name="perm_vpn_ok">已授權，流量只在本機轉發</string>
+    <string name="perm_vpn_bad">未授權，點此開啟</string>
+    <string name="perm_a11y">無障礙服務</string>
+    <string name="perm_a11y_ok">已開啟，只讀取瀏覽器網址列</string>
+    <string name="perm_a11y_bad">未開啟，點此前往系統設定</string>
+    <string name="https_decrypt">解密 HTTPS</string>
+    <string name="https_decrypt_on">已安裝擇要憑證。開啟後，本機 VPN 會在這部裝置上解開 HTTPS，才能讀到完整文章路徑與頁面正文。系統可能顯示連線警告；部分只信任系統憑證的 App 或網站會連不上。此開關預設關閉。</string>
+    <string name="https_decrypt_off">須先安裝擇要憑證才會生效。點「擇要憑證」會把檔案存到下載資料夾；再到「設定 → 安全性 → 加密與憑證 → 安裝憑證 → CA 憑證」選「擇要CA.crt」。部分網站或 App 可能因此無法連線。</string>
+    <string name="ca_cert">擇要憑證</string>
+    <string name="ca_ok">已安裝為使用者憑證。點此可再把「擇要CA.crt」存到下載資料夾。</string>
+    <string name="ca_bad">未安裝。點此會把「擇要CA.crt」存到下載資料夾，再顯示安裝步驟。</string>
+    <string name="set_default_browser">設為預設瀏覽器</string>
+    <string name="default_browser_ok">擇要目前是預設瀏覽器。不是新聞的連結會轉到下面指定的瀏覽器。</string>
+    <string name="default_browser_bad">未設定。點此向系統申請，打開連結時才能在進頁面前攔截。</string>
+    <string name="handoff_unset">尚未指定，將使用裝置上的常用瀏覽器</string>
+    <string name="handoff_hint">實際瀏覽器：%1$s。點此選擇「進入」或非新聞連結要跳轉的瀏覽器。</string>
+    <string name="theme_system">跟隨系統</string>
+    <string name="theme_dark">深色</string>
+    <string name="theme_light">淺色</string>
+    <string name="typo_editorial">編輯體（較疏朗）</string>
+    <string name="typo_compact">緊湊</string>
+    <string name="btn_left">兩個按鈕靠左</string>
+    <string name="btn_right">兩個按鈕靠右</string>
+    <string name="btn_bottom">底部置中</string>
+    <string name="btn_enter_left">進入在左、返回在右</string>
+    <string name="btn_enter_right">進入在右、返回在左</string>
+    <string name="continue_on_exit">擇要過程中退出後繼續生成</string>
+    <string name="continue_on_exit_hint">開啟時，按返回或進入後仍會在背景跑完並寫入最近紀錄；關閉則立即停止。</string>
+    <string name="github_link">擇要 GitHub</string>
+    <string name="time_start">開始時間</string>
+    <string name="time_end">結束時間</string>
+    <string name="apps_clear">全部（清空）</string>
+    <string name="actual_browser">實際瀏覽器</string>
+    <string name="extracting">正在擷取與擇要…</string>
 </resources>

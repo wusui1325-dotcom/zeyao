@@ -72,7 +72,7 @@ fun InterceptScreen(
             Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
                 val body = when {
                     session.error != null && session.summary.isBlank() -> session.error
-                    session.summary.isBlank() && session.streaming -> "正在擷取與擇要…"
+                    session.summary.isBlank() && session.streaming -> stringResource(R.string.extracting)
                     else -> session.summary
                 }
                 Text(

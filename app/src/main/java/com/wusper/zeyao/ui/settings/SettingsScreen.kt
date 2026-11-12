@@ -112,39 +112,39 @@ fun SettingsScreen(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            SectionLabel("攔截")
+            SectionLabel(stringResource(R.string.section_intercept))
             SettingSwitch(
-                title = "全域",
-                subtitle = if (vpnReady) "攔截新聞網址，於正文打開前先出示擇要頁。" else "開啟時會請求本機 VPN 權限。",
+                title = stringResource(R.string.global_intercept),
+                subtitle = if (vpnReady) stringResource(R.string.global_intercept_on) else stringResource(R.string.global_intercept_off),
                 checked = settings.interceptEnabled,
                 onChecked = onToggleIntercept,
             )
             SettingSwitch(
-                title = "常駐",
-                subtitle = "以前景服務保持攔截，並在重啟後嘗試恢復。系統可能會再問你略過電池優化。",
+                title = stringResource(R.string.persistent),
+                subtitle = stringResource(R.string.persistent_hint),
                 checked = settings.persistentEnabled,
                 onChecked = onTogglePersistent,
             )
             SettingSwitch(
-                title = "特定時段",
-                subtitle = "只在選定的星期與時段攔截。跨日（例如 22:00–07:00）也支援。",
+                title = stringResource(R.string.schedule_enabled),
+                subtitle = stringResource(R.string.schedule_hint),
                 checked = settings.scheduleEnabled,
                 onChecked = { enabled -> onUpdate { s -> s.copy(scheduleEnabled = enabled) } },
             )
             if (settings.scheduleEnabled) {
                 DayRow(selected = settings.scheduleDays, onChange = { days -> onUpdate { it.copy(scheduleDays = days) } })
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TimeChip("開始 ${formatMinutes(settings.scheduleStartMinutes)}") { pickingStart = true }
-                    TimeChip("結束 ${formatMinutes(settings.scheduleEndMinutes)}") { pickingEnd = true }
+                    TimeChip(stringResource(R.string.schedule_start, formatMinutes(settings.scheduleStartMinutes))) { pickingStart = true }
+                    TimeChip(stringResource(R.string.schedule_end, formatMinutes(settings.scheduleEndMinutes))) { pickingEnd = true }
                 }
             }
 
             Spacer(Modifier.height(8.dp))
-            SectionLabel("特定 App")
+            SectionLabel(stringResource(R.string.section_apps))
             val count = settings.targetPackages.size
             Text(
-                if (count == 0) "目前：全部 App。點此選擇只攔截特定 App。"
-                else "目前：已選 $count 個 App。清空後視為全部。",
+                if (count == 0) stringResource(R.string.apps_all)
+                else stringResource(R.string.apps_selected, count),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
@@ -155,19 +155,19 @@ fun SettingsScreen(
             )
 
             Spacer(Modifier.height(8.dp))
-            SectionLabel("權限")
+            SectionLabel(stringResource(R.string.section_permissions))
             PermissionLine(
-                title = "本機 VPN",
+                title = stringResource(R.string.perm_vpn),
                 ok = vpnReady,
-                okText = "已授權，流量只在本機轉發",
-                badText = "未授權，點此開啟",
+                okText = stringResource(R.string.perm_vpn_ok),
+                badText = stringResource(R.string.perm_vpn_bad),
                 onClick = onOpenVpnSettings,
             )
             PermissionLine(
-                title = "無障礙服務",
+                title = stringResource(R.string.perm_a11y),
                 ok = accessibilityEnabled,
-                okText = "已開啟，只讀取瀏覽器網址列",
-                badText = "未開啟，點此前往系統設定",
+                okText = stringResource(R.string.perm_a11y_ok),
+                badText = stringResource(R.string.perm_a11y_bad),
                 onClick = onOpenAccessibilitySettings,
             )
 
@@ -191,53 +191,49 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-            SectionLabel("點擊攔截（微信等）")
+            SectionLabel(stringResource(R.string.section_click))
             SettingSwitch(
-                title = "點擊攔截",
-                subtitle = "預設關閉。開啟後會出現小型懸浮窗。點懸浮窗一次即「武裝」下一次點擊。微信與 Google 發現頁會優先抽出連結；微信若節點沒有網址，可先長按複製連結再點一次。需要無障礙與懸浮窗權限。",
+                title = stringResource(R.string.click_intercept),
+                subtitle = stringResource(R.string.click_intercept_hint),
                 checked = settings.clickInterceptEnabled,
                 onChecked = onToggleClickIntercept,
             )
             SettingSwitch(
-                title = "消耗原點擊",
-                subtitle = "預設關閉。開啟後，當擇要出現時會嘗試立刻返回，減少原頁面同時載入。部分 App 仍可能繼續跳轉。",
+                title = stringResource(R.string.click_consume),
+                subtitle = stringResource(R.string.click_consume_hint),
                 checked = settings.clickInterceptConsume,
                 onChecked = onToggleClickConsume,
             )
 
             Spacer(Modifier.height(8.dp))
-            SectionLabel("HTTPS 解密")
+            SectionLabel(stringResource(R.string.section_https))
             SettingSwitch(
-                title = "解密 HTTPS",
-                subtitle = if (caInstalled) {
-                    "已安裝擇要憑證。開啟後，本機 VPN 會在這部裝置上解開 HTTPS，才能讀到完整文章路徑與頁面正文。系統可能顯示連線警告；部分只信任系統憑證的 App 或網站會連不上。此開關預設關閉。"
-                } else {
-                    "須先安裝擇要憑證才會生效。點「擇要憑證」會把檔案存到下載資料夾；再到「設定 → 安全性 → 加密與憑證 → 安裝憑證 → CA 憑證」選「擇要CA.crt」。部分網站或 App 可能因此無法連線。"
-                },
+                title = stringResource(R.string.https_decrypt),
+                subtitle = if (caInstalled) stringResource(R.string.https_decrypt_on) else stringResource(R.string.https_decrypt_off),
                 checked = settings.httpsDecryptEnabled,
                 onChecked = onToggleHttpsDecrypt,
             )
             PermissionLine(
-                title = "擇要憑證",
+                title = stringResource(R.string.ca_cert),
                 ok = caInstalled,
-                okText = "已安裝為使用者憑證。點此可再把「擇要CA.crt」存到下載資料夾。",
-                badText = "未安裝。點此會把「擇要CA.crt」存到下載資料夾，再顯示安裝步驟。",
+                okText = stringResource(R.string.ca_ok),
+                badText = stringResource(R.string.ca_bad),
                 onClick = onInstallCa,
             )
 
             Spacer(Modifier.height(8.dp))
-            SectionLabel("預設瀏覽器")
+            SectionLabel(stringResource(R.string.section_browser))
             PermissionLine(
-                title = "設為預設瀏覽器",
+                title = stringResource(R.string.set_default_browser),
                 ok = isDefaultBrowser,
-                okText = "擇要目前是預設瀏覽器。不是新聞的連結會轉到下面指定的瀏覽器。",
-                badText = "未設定。點此向系統申請，打開連結時才能在進頁面前攔截。",
+                okText = stringResource(R.string.default_browser_ok),
+                badText = stringResource(R.string.default_browser_bad),
                 onClick = onRequestDefaultBrowser,
             )
             val handoffName = browsers.firstOrNull { it.first == settings.handoffBrowserPackage }?.second
-                ?: if (settings.handoffBrowserPackage.isBlank()) "尚未指定，將使用裝置上的常用瀏覽器" else settings.handoffBrowserPackage
+                ?: if (settings.handoffBrowserPackage.isBlank()) stringResource(R.string.handoff_unset) else settings.handoffBrowserPackage
             Text(
-                "實際瀏覽器：$handoffName。點此選擇「進入」或非新聞連結要跳轉的瀏覽器。",
+                stringResource(R.string.handoff_hint, handoffName),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
@@ -248,7 +244,7 @@ fun SettingsScreen(
             )
 
             Spacer(Modifier.height(8.dp))
-            SectionLabel("顏色")
+            SectionLabel(stringResource(R.string.section_color))
             val accents = listOf(
                 0xFFB33A2BL, 0xFF1F4E3DL, 0xFF1C3A5FL, 0xFF7A2E4AL, 0xFF8A5A18L, 0xFF2E2A28L,
             )
@@ -272,13 +268,13 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-            SectionLabel("風格")
+            SectionLabel(stringResource(R.string.section_style))
             ThemeStyle.entries.forEach { style ->
                 ChoiceRow(
                     title = when (style) {
-                        ThemeStyle.FOLLOW_SYSTEM -> "跟隨系統"
-                        ThemeStyle.DARK -> "深色"
-                        ThemeStyle.LIGHT -> "淺色"
+                        ThemeStyle.FOLLOW_SYSTEM -> stringResource(R.string.theme_system)
+                        ThemeStyle.DARK -> stringResource(R.string.theme_dark)
+                        ThemeStyle.LIGHT -> stringResource(R.string.theme_light)
                     },
                     selected = settings.themeStyle == style,
                     onClick = { onUpdate { it.copy(themeStyle = style) } },
@@ -288,8 +284,8 @@ fun SettingsScreen(
             TypographyStyle.entries.forEach { style ->
                 ChoiceRow(
                     title = when (style) {
-                        TypographyStyle.EDITORIAL -> "編輯體（較疏朗）"
-                        TypographyStyle.COMPACT -> "緊湊"
+                        TypographyStyle.EDITORIAL -> stringResource(R.string.typo_editorial)
+                        TypographyStyle.COMPACT -> stringResource(R.string.typo_compact)
                     },
                     selected = settings.typographyStyle == style,
                     onClick = { onUpdate { it.copy(typographyStyle = style) } },
@@ -297,15 +293,15 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-            SectionLabel("進入按鈕位置")
+            SectionLabel(stringResource(R.string.section_enter_pos))
             EnterButtonPosition.entries.forEach { pos ->
                 ChoiceRow(
                     title = when (pos) {
-                        EnterButtonPosition.LEFT -> "兩個按鈕靠左"
-                        EnterButtonPosition.RIGHT -> "兩個按鈕靠右"
-                        EnterButtonPosition.BOTTOM_CENTER -> "底部置中"
-                        EnterButtonPosition.ENTER_LEFT -> "進入在左、返回在右"
-                        EnterButtonPosition.ENTER_RIGHT -> "進入在右、返回在左"
+                        EnterButtonPosition.LEFT -> stringResource(R.string.btn_left)
+                        EnterButtonPosition.RIGHT -> stringResource(R.string.btn_right)
+                        EnterButtonPosition.BOTTOM_CENTER -> stringResource(R.string.btn_bottom)
+                        EnterButtonPosition.ENTER_LEFT -> stringResource(R.string.btn_enter_left)
+                        EnterButtonPosition.ENTER_RIGHT -> stringResource(R.string.btn_enter_right)
                     },
                     selected = settings.enterButtonPosition == pos,
                     onClick = { onUpdate { it.copy(enterButtonPosition = pos) } },
@@ -313,16 +309,16 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-            SectionLabel("生成")
+            SectionLabel(stringResource(R.string.section_generate))
             SettingSwitch(
-                title = "擇要過程中退出後繼續生成",
-                subtitle = "開啟時，按返回或進入後仍會在背景跑完並寫入最近紀錄；關閉則立即停止。",
+                title = stringResource(R.string.continue_on_exit),
+                subtitle = stringResource(R.string.continue_on_exit_hint),
                 checked = settings.continueOnExit,
                 onChecked = { enabled -> onUpdate { s -> s.copy(continueOnExit = enabled) } },
             )
             Spacer(Modifier.height(32.dp))
             Text(
-                "擇要 GitHub",
+                stringResource(R.string.github_link),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
@@ -343,7 +339,7 @@ fun SettingsScreen(
 
     if (pickingStart) {
         TimePickDialog(
-            title = "開始時間",
+            title = stringResource(R.string.time_start),
             minutes = settings.scheduleStartMinutes,
             onDismiss = { pickingStart = false },
             onConfirm = {
@@ -354,7 +350,7 @@ fun SettingsScreen(
     }
     if (pickingEnd) {
         TimePickDialog(
-            title = "結束時間",
+            title = stringResource(R.string.time_end),
             minutes = settings.scheduleEndMinutes,
             onDismiss = { pickingEnd = false },
             onConfirm = {
@@ -489,9 +485,9 @@ private fun TimePickDialog(title: String, minutes: Int, onDismiss: () -> Unit, o
         title = { Text(title) },
         text = { TimePicker(state = state) },
         confirmButton = {
-            TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) { Text("確定") }
+            TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) { Text(stringResource(R.string.ok)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -505,7 +501,7 @@ private fun AppPickerDialog(
     var current by remember { mutableStateOf(selected) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("特定 App") },
+        title = { Text(stringResource(R.string.section_apps)) },
         text = {
             Column {
                 Text(
@@ -515,7 +511,7 @@ private fun AppPickerDialog(
                 )
                 Spacer(Modifier.height(8.dp))
                 Row {
-                    TextButton(onClick = { current = emptySet() }) { Text("全部（清空）") }
+                    TextButton(onClick = { current = emptySet() }) { Text(stringResource(R.string.apps_clear)) }
                 }
                 Column(
                     Modifier
@@ -545,8 +541,8 @@ private fun AppPickerDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onConfirm(current) }) { Text("完成") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        confirmButton = { TextButton(onClick = { onConfirm(current) }) { Text(stringResource(R.string.done)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -559,7 +555,7 @@ private fun BrowserPickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("實際瀏覽器") },
+        title = { Text(stringResource(R.string.actual_browser)) },
         text = {
             Column(
                 Modifier
@@ -577,7 +573,7 @@ private fun BrowserPickerDialog(
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -601,7 +597,7 @@ private fun CooldownPickerDialog(
     val options = listOf(10, 30, 60, 120, 180, 300, 600)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("同網站冷卻") },
+        title = { Text(stringResource(R.string.cooldown_dialog_title)) },
         text = {
             Column(
                 Modifier
@@ -620,7 +616,7 @@ private fun CooldownPickerDialog(
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
