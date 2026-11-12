@@ -49,6 +49,8 @@ class SettingsRepository(private val context: Context) {
             prefs[SUMMARY_LENGTH] = next.summaryLength.name
             prefs[SEARCH_NEWS] = next.searchNewsEnabled
             prefs[IMAGE_RECOGNITION] = next.imageRecognitionEnabled
+            prefs[INTERCEPT_ALL] = next.interceptAllPages
+            prefs[ASK_BEFORE] = next.askBeforeSummary
         }
     }
 
@@ -114,6 +116,8 @@ class SettingsRepository(private val context: Context) {
             .getOrDefault(SummaryLength.NORMAL),
         searchNewsEnabled = this[SEARCH_NEWS] ?: false,
         imageRecognitionEnabled = this[IMAGE_RECOGNITION] ?: false,
+        interceptAllPages = this[INTERCEPT_ALL] ?: false,
+        askBeforeSummary = this[ASK_BEFORE] ?: false,
     )
 
     private companion object {
@@ -140,5 +144,7 @@ class SettingsRepository(private val context: Context) {
         val SUMMARY_LENGTH = stringPreferencesKey("summary_length")
         val SEARCH_NEWS = booleanPreferencesKey("search_news")
         val IMAGE_RECOGNITION = booleanPreferencesKey("image_recognition")
+        val INTERCEPT_ALL = booleanPreferencesKey("intercept_all")
+        val ASK_BEFORE = booleanPreferencesKey("ask_before")
     }
 }

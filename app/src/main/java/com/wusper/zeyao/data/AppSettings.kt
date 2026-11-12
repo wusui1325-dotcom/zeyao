@@ -45,6 +45,10 @@ data class AppSettings(
      * sends the previous screenshot to the cheapest model to recover a title or link.
      */
     val imageRecognitionEnabled: Boolean = false,
+    /** Intercept every classifiable page, not only news. */
+    val interceptAllPages: Boolean = false,
+    /** When intercept-all is on, ask before opening 擇要. Off = always summarize. */
+    val askBeforeSummary: Boolean = false,
 )
 
 enum class SummaryLength { SHORT, NORMAL, LONG }

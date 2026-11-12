@@ -254,6 +254,14 @@ object InterceptController {
                 if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
                 return@launch
             }
+            if (settings.interceptAllPages) {
+                if (settings.askBeforeSummary) {
+                    launchAsk(clean, title, packageName, startFrom)
+                } else {
+                    startOrRefine(clean, title, packageName, startFrom)
+                }
+                return@launch
+            }
             val now = SystemClock.elapsedRealtime()
             val last = lastSeenUrlAt.put(normalizeUrl(clean), now)
             if (last != null && now - last < DUP_WINDOW_MS) return@launch
@@ -268,6 +276,25 @@ object InterceptController {
             }
             launchVerifyActivity(clean, title, packageName, startFrom, handoffIfNotNews)
         }
+    }
+
+    fun allowThrough(url: String) {
+        markAllowed(url)
+        val host = NewsHosts.hostOf(url).lowercase()
+        hostPassthroughUntil[host] = SystemClock.elapsedRealtime() + siteCooldownMs
+        releaseHolds(host)
+        openInBrowser(url)
+    }
+
+    private fun launchAsk(url: String, title: String, packageName: String?, startFrom: Context?) {
+        val context: Context = startFrom ?: app
+        val intent = Intent(context, com.wusper.zeyao.AskInterceptActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
+            putExtra(com.wusper.zeyao.AskInterceptActivity.EXTRA_URL, url)
+            putExtra(com.wusper.zeyao.AskInterceptActivity.EXTRA_TITLE, title)
+            putExtra(com.wusper.zeyao.AskInterceptActivity.EXTRA_PACKAGE, packageName)
+        }
+        startNow(context, intent)
     }
 
     private fun openInBrowser(url: String, preferred: String? = null) {

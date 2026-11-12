@@ -204,6 +204,13 @@ class MainActivity : ComponentActivity() {
                                 onToggleIntercept = { enabled ->
                                     scope.launch { handleInterceptToggle(enabled) }
                                 },
+                                onToggleAllPages = { enabled, ask ->
+                                    scope.launch {
+                                        app.settings.update {
+                                            it.copy(interceptAllPages = enabled, askBeforeSummary = ask)
+                                        }
+                                    }
+                                },
                                 onOpenSettings = { route = Route.SETTINGS },
                                 onOpenOther = { route = Route.OTHER },
                                 onOpenRecord = { record ->

@@ -22,6 +22,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +51,7 @@ fun MainScreen(
     vpnReady: Boolean,
     accessibilityEnabled: Boolean,
     onToggleIntercept: (Boolean) -> Unit,
+    onToggleAllPages: (Boolean, Boolean) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenOther: () -> Unit,
     onOpenRecord: (SummaryRecord) -> Unit,
@@ -83,6 +88,12 @@ fun MainScreen(
                 scheduleEnabled = settings.scheduleEnabled,
                 onToggle = onToggleIntercept,
             )
+            Spacer(Modifier.height(12.dp))
+            AllPagesCard(
+                enabled = settings.interceptAllPages,
+                askBefore = settings.askBeforeSummary,
+                onToggle = onToggleAllPages,
+            )
             Spacer(Modifier.height(28.dp))
             Text(stringResource(R.string.recent_records), style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
@@ -102,6 +113,66 @@ fun MainScreen(
                 item { Spacer(Modifier.height(24.dp)) }
             }
         }
+    }
+}
+
+@Composable
+private fun AllPagesCard(
+    enabled: Boolean,
+    askBefore: Boolean,
+    onToggle: (Boolean, Boolean) -> Unit,
+) {
+    var showAsk by remember { mutableStateOf(false) }
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(20.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(colors.surface)
+            .border(1.dp, colors.outline.copy(alpha = 0.7f), shape)
+            .padding(18.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("所有網頁攔截", style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (enabled) {
+                        if (askBefore) "攔截後會詢問是否擇要" else "攔截後一律直接擇要"
+                    } else {
+                        "開啟後攔截所有可分類網頁，不只新聞"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = enabled,
+                onCheckedChange = { on ->
+                    if (on) showAsk = true else onToggle(false, false)
+                },
+            )
+        }
+    }
+    if (showAsk) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showAsk = false },
+            title = { Text("攔截後一律詢問？") },
+            text = { Text("開啟：攔截到後彈窗問是否擇要。\n關閉：一律直接進入擇要。") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    onToggle(true, true)
+                    showAsk = false
+                }) { Text("開啟詢問") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    onToggle(true, false)
+                    showAsk = false
+                }) { Text("直接擇要") }
+            },
+        )
     }
 }
 

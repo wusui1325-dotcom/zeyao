@@ -114,6 +114,22 @@ fun SettingsScreen(
         ) {
             SectionLabel(stringResource(R.string.section_intercept))
             SettingSwitch(
+                title = "所有網頁攔截",
+                subtitle = if (settings.interceptAllPages) {
+                    if (settings.askBeforeSummary) "已開。攔截後會詢問是否擇要。" else "已開。攔截後一律直接擇要。"
+                } else {
+                    "開啟後攔截所有可分類網頁，不只新聞。"
+                },
+                checked = settings.interceptAllPages,
+                onChecked = { enabled -> onUpdate { it.copy(interceptAllPages = enabled) } },
+            )
+            SettingSwitch(
+                title = "攔截後一律詢問",
+                subtitle = "開啟：彈窗問是否擇要。關閉：一律直接擇要。",
+                checked = settings.askBeforeSummary,
+                onChecked = { enabled -> onUpdate { it.copy(askBeforeSummary = enabled) } },
+            )
+            SettingSwitch(
                 title = stringResource(R.string.global_intercept),
                 subtitle = if (vpnReady) stringResource(R.string.global_intercept_on) else stringResource(R.string.global_intercept_off),
                 checked = settings.interceptEnabled,
