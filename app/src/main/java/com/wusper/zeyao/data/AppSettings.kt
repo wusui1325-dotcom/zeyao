@@ -40,6 +40,11 @@ data class AppSettings(
     val summaryLength: SummaryLength = SummaryLength.NORMAL,
     /** When on, regenerate/shorter/longer will ask the model to search before summarizing. */
     val searchNewsEnabled: Boolean = false,
+    /**
+     * Experimental. Screenshots every second (max 3) and, when a page is intercepted,
+     * sends the previous screenshot to the cheapest model to recover a title or link.
+     */
+    val imageRecognitionEnabled: Boolean = false,
 )
 
 enum class SummaryLength { SHORT, NORMAL, LONG }

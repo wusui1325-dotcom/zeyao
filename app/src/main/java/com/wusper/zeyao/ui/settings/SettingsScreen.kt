@@ -333,6 +333,38 @@ fun SettingsScreen(
                 checked = settings.searchNewsEnabled,
                 onChecked = { enabled -> onUpdate { it.copy(searchNewsEnabled = enabled) } },
             )
+            Spacer(Modifier.height(8.dp))
+            SectionLabel("實驗性")
+            var showImageWarn by remember { mutableStateOf(false) }
+            SettingSwitch(
+                title = "圖片辨識",
+                subtitle = "預設關閉。開啟後每秒截圖（最多 3 張），VPN 偵測到網頁時把上一張送給最便宜模型抽標題或連結，再搜一次塞進擇要。",
+                checked = settings.imageRecognitionEnabled,
+                onChecked = { enabled ->
+                    if (enabled) showImageWarn = true
+                    else {
+                        onUpdate { it.copy(imageRecognitionEnabled = false) }
+                        com.wusper.zeyao.intercept.ScreenshotBuffer.enabled = false
+                    }
+                },
+            )
+            if (showImageWarn) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showImageWarn = false },
+                    title = { Text("開啟圖片辨識？") },
+                    text = { Text("這是實驗功能。開啟後會每秒截圖，並在攔截新聞時把截圖上傳到你的 AI API（最便宜模型）以抽出標題或連結。會消耗額度，且截圖會離開裝置。") },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            onUpdate { it.copy(imageRecognitionEnabled = true) }
+                            com.wusper.zeyao.intercept.ScreenshotBuffer.enabled = true
+                            showImageWarn = false
+                        }) { Text("確認開啟") }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = { showImageWarn = false }) { Text("取消") }
+                    },
+                )
+            }
 
             Spacer(Modifier.height(8.dp))
             SectionLabel(stringResource(R.string.section_generate))

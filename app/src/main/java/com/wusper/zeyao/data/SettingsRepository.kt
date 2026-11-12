@@ -48,6 +48,7 @@ class SettingsRepository(private val context: Context) {
             prefs[LANGUAGE] = next.language.tag
             prefs[SUMMARY_LENGTH] = next.summaryLength.name
             prefs[SEARCH_NEWS] = next.searchNewsEnabled
+            prefs[IMAGE_RECOGNITION] = next.imageRecognitionEnabled
         }
     }
 
@@ -112,6 +113,7 @@ class SettingsRepository(private val context: Context) {
         summaryLength = runCatching { SummaryLength.valueOf(this[SUMMARY_LENGTH] ?: "NORMAL") }
             .getOrDefault(SummaryLength.NORMAL),
         searchNewsEnabled = this[SEARCH_NEWS] ?: false,
+        imageRecognitionEnabled = this[IMAGE_RECOGNITION] ?: false,
     )
 
     private companion object {
@@ -137,5 +139,6 @@ class SettingsRepository(private val context: Context) {
         val LANGUAGE = stringPreferencesKey("language")
         val SUMMARY_LENGTH = stringPreferencesKey("summary_length")
         val SEARCH_NEWS = booleanPreferencesKey("search_news")
+        val IMAGE_RECOGNITION = booleanPreferencesKey("image_recognition")
     }
 }

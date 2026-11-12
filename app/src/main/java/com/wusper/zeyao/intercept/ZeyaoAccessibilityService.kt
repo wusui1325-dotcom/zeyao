@@ -25,6 +25,13 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         InterceptController.accessibility = this
         defaultBrowser = runCatching { DefaultBrowser.packageName(this) }.getOrNull()
+        // Start screenshot loop if the experimental flag is already on.
+        runCatching {
+            val app = com.wusper.zeyao.ZeyaoApp.instance
+            kotlinx.coroutines.runBlocking {
+                ScreenshotBuffer.enabled = app.settings.current().imageRecognitionEnabled
+            }
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {

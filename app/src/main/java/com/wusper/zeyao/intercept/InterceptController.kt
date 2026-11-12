@@ -445,6 +445,7 @@ object InterceptController {
                 app.records.update(id, title = workingTitle, url = workingUrl)
             }
             val settings = app.settings.current()
+            ScreenshotBuffer.enabled = settings.imageRecognitionEnabled
             val key = app.secrets.getApiKey(settings.providerId)
             if (key.isNullOrBlank()) {
                 fail(id, "尚未設定 API Key，仍可進入或返回")
@@ -458,6 +459,25 @@ object InterceptController {
             }
             try {
                 val client = AiClientFactory.create(settings.providerId)
+                var imageHint = ""
+                if (settings.imageRecognitionEnabled) {
+                    val shot = ScreenshotBuffer.previous()
+                    if (shot != null) {
+                        val extracted = com.wusper.zeyao.ai.ImageTitleExtractor.extract(
+                            apiKey = key,
+                            providerId = settings.providerId,
+                            bitmap = shot,
+                        )
+                        if (!extracted.isNullOrBlank()) {
+                            imageHint = "截圖辨識結果（優先標題）：$extracted\n"
+                            if (settings.providerId == "deepseek") {
+                                val hits = com.wusper.zeyao.ai.DeepSeekSearch.search(key, extracted.take(100), count = 3)
+                                val formatted = com.wusper.zeyao.ai.DeepSeekSearch.formatForPrompt(hits)
+                                if (formatted.isNotBlank()) imageHint += formatted + "\n"
+                            }
+                        }
+                    }
+                }
                 val useSearch = (searchOverride ?: settings.searchNewsEnabled) &&
                     settings.providerId == "deepseek"
                 val searchContext = if (useSearch) {
@@ -472,6 +492,10 @@ object InterceptController {
                     ""
                 }
                 val articleText = buildString {
+                    if (imageHint.isNotBlank()) {
+                        append(imageHint)
+                        appendLine("---")
+                    }
                     if (searchContext.isNotBlank()) {
                         append(searchContext)
                         appendLine()
