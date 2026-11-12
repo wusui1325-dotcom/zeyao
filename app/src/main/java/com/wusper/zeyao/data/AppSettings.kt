@@ -34,7 +34,21 @@ data class AppSettings(
     val clickInterceptConsume: Boolean = false,
     /** Same-site cooldown in seconds. Default 10 minutes. */
     val siteCooldownSeconds: Int = 600,
+    /** UI language. Default Traditional Chinese. */
+    val language: AppLanguage = AppLanguage.TRADITIONAL,
 )
+
+enum class AppLanguage(val tag: String, val nativeName: String) {
+    SIMPLIFIED("zh-CN", "简体中文"),
+    TRADITIONAL("zh-TW", "繁體中文"),
+    ENGLISH("en", "English"),
+    ;
+
+    companion object {
+        fun fromTag(tag: String?): AppLanguage =
+            entries.firstOrNull { it.tag == tag } ?: TRADITIONAL
+    }
+}
 
 enum class ThemeStyle { FOLLOW_SYSTEM, DARK, LIGHT }
 

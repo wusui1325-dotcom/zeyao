@@ -45,6 +45,7 @@ class SettingsRepository(private val context: Context) {
             prefs[CLICK_INTERCEPT] = next.clickInterceptEnabled
             prefs[CLICK_CONSUME] = next.clickInterceptConsume
             prefs[SITE_COOLDOWN] = next.siteCooldownSeconds
+            prefs[LANGUAGE] = next.language.tag
         }
     }
 
@@ -105,6 +106,7 @@ class SettingsRepository(private val context: Context) {
         clickInterceptEnabled = this[CLICK_INTERCEPT] ?: false,
         clickInterceptConsume = this[CLICK_CONSUME] ?: false,
         siteCooldownSeconds = this[SITE_COOLDOWN] ?: 600,
+        language = AppLanguage.fromTag(this[LANGUAGE]),
     )
 
     private companion object {
@@ -127,5 +129,6 @@ class SettingsRepository(private val context: Context) {
         val CLICK_INTERCEPT = booleanPreferencesKey("click_intercept")
         val CLICK_CONSUME = booleanPreferencesKey("click_intercept_consume")
         val SITE_COOLDOWN = intPreferencesKey("site_cooldown_seconds")
+        val LANGUAGE = stringPreferencesKey("language")
     }
 }

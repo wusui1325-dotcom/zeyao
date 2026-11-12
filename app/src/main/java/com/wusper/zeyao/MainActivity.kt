@@ -172,11 +172,18 @@ class MainActivity : ComponentActivity() {
                         route == Route.OTHER -> {
                             OtherScreen(
                                 currentProviderId = settings.providerId,
+                                currentLanguage = settings.language,
                                 onBack = { route = Route.MAIN },
                                 onReconfigureKey = { route = Route.RECONFIGURE },
                                 onTestUrl = { raw ->
                                     val url = if (raw.startsWith("http")) raw else "https://$raw"
                                     InterceptController.startOrRefine(url, title = "", packageName = packageName)
+                                },
+                                onLanguageChange = { lang ->
+                                    scope.launch {
+                                        app.settings.update { it.copy(language = lang) }
+                                        applyLanguage(lang)
+                                    }
                                 },
                             )
                         }
@@ -209,6 +216,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun applyLanguage(lang: com.wusper.zeyao.data.AppLanguage) {
+        val locale = java.util.Locale.forLanguageTag(lang.tag)
+        java.util.Locale.setDefault(locale)
+        val config = android.content.res.Configuration(resources.configuration)
+        config.setLocale(locale)
+        @Suppress("DEPRECATION")
+        resources.updateConfiguration(config, resources.displayMetrics)
+        recreate()
     }
 
     override fun onResume() {

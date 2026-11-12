@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.wusper.zeyao.ai.AiProvider
+import com.wusper.zeyao.data.AppLanguage
+import com.wusper.zeyao.ui.components.ChoiceRow
 import com.wusper.zeyao.ui.components.PrimaryButton
 import com.wusper.zeyao.ui.components.SectionLabel
 import com.wusper.zeyao.ui.components.TopAction
@@ -31,9 +33,11 @@ import com.wusper.zeyao.ui.components.TopAction
 @Composable
 fun OtherScreen(
     currentProviderId: String,
+    currentLanguage: AppLanguage,
     onBack: () -> Unit,
     onReconfigureKey: () -> Unit,
     onTestUrl: (String) -> Unit,
+    onLanguageChange: (AppLanguage) -> Unit,
 ) {
     var testUrl by remember { mutableStateOf("") }
     val provider = AiProvider.fromId(currentProviderId)
@@ -91,6 +95,24 @@ fun OtherScreen(
                 onClick = { onTestUrl(testUrl.trim()) },
                 enabled = testUrl.isNotBlank(),
             )
+            Spacer(Modifier.height(36.dp))
+            SectionLabel("語言")
+            Text(
+                "選擇介面語言。更改後部分文字會在下次進入相關頁面時更新。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                AppLanguage.entries.forEach { lang ->
+                    ChoiceRow(
+                        title = lang.nativeName,
+                        subtitle = null,
+                        selected = lang == currentLanguage,
+                        onClick = { onLanguageChange(lang) },
+                    )
+                }
+            }
             Spacer(Modifier.height(36.dp))
             SectionLabel("關於")
             Text(

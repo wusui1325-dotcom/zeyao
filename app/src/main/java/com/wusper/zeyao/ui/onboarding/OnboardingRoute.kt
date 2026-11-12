@@ -45,13 +45,14 @@ import com.wusper.zeyao.ai.AiClientFactory
 import com.wusper.zeyao.ai.AiInitException
 import com.wusper.zeyao.ai.AiProvider
 import com.wusper.zeyao.ai.GenerationParams
+import com.wusper.zeyao.data.AppLanguage
 import com.wusper.zeyao.ui.components.BrandMark
 import com.wusper.zeyao.ui.components.ChoiceRow
 import com.wusper.zeyao.ui.components.PrimaryButton
 import com.wusper.zeyao.ui.components.QuietButton
 import kotlinx.coroutines.launch
 
-enum class OnboardingStep { PROVIDER, KEY, LOADING }
+enum class OnboardingStep { LANGUAGE, PROVIDER, KEY, LOADING }
 
 @Composable
 fun OnboardingRoute(
@@ -61,7 +62,11 @@ fun OnboardingRoute(
 ) {
     val app = ZeyaoApp.instance
     val scope = rememberCoroutineScope()
-    var step by remember { mutableStateOf(if (reconfigure && initialProviderId != null) OnboardingStep.PROVIDER else OnboardingStep.PROVIDER) }
+    var step by remember {
+        mutableStateOf(
+            if (reconfigure) OnboardingStep.PROVIDER else OnboardingStep.LANGUAGE
+        )
+    }
     var selected by remember { mutableStateOf<AiProvider?>(null) }
     var key by remember { mutableStateOf("") }
     var showKey by remember { mutableStateOf(false) }
@@ -117,6 +122,16 @@ fun OnboardingRoute(
             label = "onboard",
         ) { current ->
             when (current) {
+                OnboardingStep.LANGUAGE -> LanguageStep(
+                    onSelect = { lang ->
+                        scope.launch {
+                            app.settings.update { it.copy(language = lang) }
+                        }
+                        val locale = java.util.Locale.forLanguageTag(lang.tag)
+                        java.util.Locale.setDefault(locale)
+                        step = OnboardingStep.PROVIDER
+                    },
+                )
                 OnboardingStep.PROVIDER -> ProviderStep(
                     selected = selected,
                     onSelect = { selected = it },
@@ -150,6 +165,39 @@ fun OnboardingRoute(
                         if (key.isBlank()) return@LoadingStep
                         runInit(provider, key.trim())
                     },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanguageStep(onSelect: (AppLanguage) -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        BrandMark()
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "選擇語言 / Choose language",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "之後可在「其他」中更改。",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(24.dp))
+        Column(
+            Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            AppLanguage.entries.forEach { lang ->
+                ChoiceRow(
+                    title = lang.nativeName,
+                    subtitle = null,
+                    selected = false,
+                    onClick = { onSelect(lang) },
                 )
             }
         }
