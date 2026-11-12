@@ -34,8 +34,10 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         if (pkg == BuildConfig.APPLICATION_ID) return
 
         // Click-intercept path (floating window armed)
-        if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED &&
-            InterceptController.clickArmed
+        if (InterceptController.clickArmed &&
+            (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED ||
+                event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
+                event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
         ) {
             handleArmedClick(event, pkg)
             return
@@ -70,25 +72,45 @@ class ZeyaoAccessibilityService : AccessibilityService() {
     }
 
     private fun handleArmedClick(event: AccessibilityEvent, pkg: String) {
-        val source = event.source ?: return
-        try {
-            val url = findUrlInNode(source) ?: return
-            InterceptController.clickArmed = false
-            InterceptController.onUrlDetected(url, title = "", packageName = pkg)
-            if (InterceptController.clickConsume) {
-                // Best-effort: go back so the original navigation is less likely to proceed.
-                performGlobalAction(GLOBAL_ACTION_BACK)
+        val source = event.source
+        var url: String? = null
+        if (source != null) {
+            try {
+                url = findUrlInNode(source)
+            } finally {
+                source.recycleSafely()
             }
-        } finally {
-            source.recycleSafely()
+        }
+        if (url == null) {
+            // WeChat and many apps put the real URL only in a sibling or in the window text.
+            val root = rootInActiveWindow
+            if (root != null) {
+                try {
+                    url = findUrlInNode(root)
+                } finally {
+                    root.recycleSafely()
+                }
+            }
+        }
+        if (url == null) {
+            android.widget.Toast.makeText(
+                this,
+                "已武裝，但這次點擊的節點裡沒有完整網址",
+                android.widget.Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        InterceptController.clickArmed = false
+        InterceptController.onUrlDetected(url, title = "", packageName = pkg)
+        if (InterceptController.clickConsume) {
+            performGlobalAction(GLOBAL_ACTION_BACK)
         }
     }
 
     private fun findUrlInNode(node: AccessibilityNodeInfo): String? {
-        // Prefer the clicked node itself, then walk parents and children a bit.
         val candidates = mutableListOf<String>()
         fun collect(n: AccessibilityNodeInfo, depth: Int) {
-            if (depth > 4) return
+            if (depth > 6) return
             n.urlCandidate().let { if (it.isNotBlank()) candidates += it }
             for (i in 0 until n.childCount) {
                 n.getChild(i)?.let { child ->
@@ -100,14 +122,28 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         collect(node, 0)
         var parent = node.parent
         var hops = 0
-        while (parent != null && hops < 3) {
+        while (parent != null && hops < 4) {
             parent.urlCandidate().let { if (it.isNotBlank()) candidates += it }
             val next = parent.parent
             parent.recycleSafely()
             parent = next
             hops++
         }
-        return candidates.firstNotNullOfOrNull { normalizeAddress(it) }
+        return candidates.firstNotNullOfOrNull { extractUrl(it) }
+    }
+
+    private fun extractUrl(raw: String): String? {
+        if (raw.isBlank()) return null
+        // Full-string normalize first (address bar style).
+        normalizeAddress(raw)?.let { return it }
+        // Otherwise search for a URL inside longer text (WeChat title + link, etc.).
+        val matcher = URL_IN_TEXT.matcher(raw)
+        while (matcher.find()) {
+            val found = matcher.group() ?: continue
+            val withScheme = if (found.startsWith("http", ignoreCase = true)) found else "https://$found"
+            if (NewsHosts.isClassifiableUrl(withScheme)) return withScheme
+        }
+        return null
     }
 
     override fun onInterrupt() = Unit
@@ -171,6 +207,10 @@ class ZeyaoAccessibilityService : AccessibilityService() {
     private companion object {
         val HOST_PATH: Pattern = Pattern.compile(
             "^[\\w.-]+\\.[a-zA-Z]{2,}(?::\\d+)?(?:/[\\w\\-._~!$&'()*+,;=:@/%?#=]*)?$",
+            Pattern.CASE_INSENSITIVE,
+        )
+        val URL_IN_TEXT: Pattern = Pattern.compile(
+            "(?:https?://)?[\\w.-]+\\.[a-zA-Z]{2,}(?::\\d+)?(?:/[\\w\\-._~!$&'()*+,;=:@/%?#=]*)?",
             Pattern.CASE_INSENSITIVE,
         )
     }
