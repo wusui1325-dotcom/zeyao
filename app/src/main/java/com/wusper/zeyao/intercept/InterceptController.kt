@@ -461,8 +461,12 @@ object InterceptController {
                 val useSearch = (searchOverride ?: settings.searchNewsEnabled) &&
                     settings.providerId == "deepseek"
                 val searchContext = if (useSearch) {
-                    val query = workingTitle.ifBlank { workingUrl }.take(100)
-                    val hits = com.wusper.zeyao.ai.DeepSeekSearch.search(key, query, count = 5)
+                    val hits = com.wusper.zeyao.ai.DeepSeekSearch.searchForArticle(
+                        apiKey = key,
+                        title = workingTitle,
+                        url = workingUrl,
+                        articleText = article?.text.orEmpty(),
+                    )
                     com.wusper.zeyao.ai.DeepSeekSearch.formatForPrompt(hits)
                 } else {
                     ""
