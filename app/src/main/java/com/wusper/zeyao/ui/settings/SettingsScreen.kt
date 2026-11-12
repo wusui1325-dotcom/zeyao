@@ -344,6 +344,18 @@ fun SettingsScreen(
                 },
             )
             SettingSwitch(
+                title = "反詐、防騙",
+                subtitle = "在提示詞加入安全提醒，並要求摘要開頭標出欺詐可能性與潛在威脅風險。",
+                checked = settings.antiFraudEnabled,
+                onChecked = { enabled -> onUpdate { it.copy(antiFraudEnabled = enabled) } },
+            )
+            SettingSwitch(
+                title = "真實性及時效性確認",
+                subtitle = "擇要前先抽出至少 10 個關鍵事實，對每個同時搜索，把結果塞回上下文。",
+                checked = settings.authenticityCheckEnabled,
+                onChecked = { enabled -> onUpdate { it.copy(authenticityCheckEnabled = enabled) } },
+            )
+            SettingSwitch(
                 title = stringResource(R.string.pref_search),
                 subtitle = stringResource(R.string.pref_search_hint),
                 checked = settings.searchNewsEnabled,

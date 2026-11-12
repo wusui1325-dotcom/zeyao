@@ -52,6 +52,7 @@ data class GenerationParams(
     val language: com.wusper.zeyao.data.AppLanguage = com.wusper.zeyao.data.AppLanguage.TRADITIONAL,
     val summaryLength: com.wusper.zeyao.data.SummaryLength = com.wusper.zeyao.data.SummaryLength.NORMAL,
     val searchNews: Boolean = false,
+    val antiFraud: Boolean = false,
 ) {
     companion object {
         val DEFAULT = GenerationParams()

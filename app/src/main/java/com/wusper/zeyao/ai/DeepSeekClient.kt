@@ -93,6 +93,7 @@ class DeepSeekClient : AiClient {
                             language = params.language,
                             length = params.summaryLength,
                             searchNews = params.searchNews,
+                            antiFraud = params.antiFraud,
                         ),
                     ),
                 ),

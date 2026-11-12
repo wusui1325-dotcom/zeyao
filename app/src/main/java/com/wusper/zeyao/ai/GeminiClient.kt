@@ -91,7 +91,7 @@ class GeminiClient : AiClient {
                         .put(
                             "parts",
                             JSONArray().put(
-                                JSONObject().put("text", SummaryPrompt.build(title, url, articleText, params.language, params.summaryLength, params.searchNews)),
+                                JSONObject().put("text", SummaryPrompt.build(title, url, articleText, params.language, params.summaryLength, params.searchNews, params.antiFraud)),
                             ),
                         ),
                 ),

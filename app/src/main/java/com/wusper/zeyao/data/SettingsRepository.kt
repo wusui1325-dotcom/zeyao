@@ -51,6 +51,8 @@ class SettingsRepository(private val context: Context) {
             prefs[IMAGE_RECOGNITION] = next.imageRecognitionEnabled
             prefs[INTERCEPT_ALL] = next.interceptAllPages
             prefs[ASK_BEFORE] = next.askBeforeSummary
+            prefs[ANTI_FRAUD] = next.antiFraudEnabled
+            prefs[AUTHENTICITY] = next.authenticityCheckEnabled
         }
     }
 
@@ -118,6 +120,8 @@ class SettingsRepository(private val context: Context) {
         imageRecognitionEnabled = this[IMAGE_RECOGNITION] ?: false,
         interceptAllPages = this[INTERCEPT_ALL] ?: false,
         askBeforeSummary = this[ASK_BEFORE] ?: false,
+        antiFraudEnabled = this[ANTI_FRAUD] ?: false,
+        authenticityCheckEnabled = this[AUTHENTICITY] ?: false,
     )
 
     private companion object {
@@ -146,5 +150,7 @@ class SettingsRepository(private val context: Context) {
         val IMAGE_RECOGNITION = booleanPreferencesKey("image_recognition")
         val INTERCEPT_ALL = booleanPreferencesKey("intercept_all")
         val ASK_BEFORE = booleanPreferencesKey("ask_before")
+        val ANTI_FRAUD = booleanPreferencesKey("anti_fraud")
+        val AUTHENTICITY = booleanPreferencesKey("authenticity")
     }
 }

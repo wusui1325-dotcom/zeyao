@@ -31,6 +31,7 @@ object SummaryPrompt {
         language: com.wusper.zeyao.data.AppLanguage = com.wusper.zeyao.data.AppLanguage.TRADITIONAL,
         length: com.wusper.zeyao.data.SummaryLength = com.wusper.zeyao.data.SummaryLength.NORMAL,
         searchNews: Boolean = false,
+        antiFraud: Boolean = false,
     ): String {
         val body = articleText.trim().take(12_000)
         val langInstruction = when (language) {
@@ -48,10 +49,21 @@ object SummaryPrompt {
         } else {
             ""
         }
+        val antiFraudInstruction = if (antiFraud) {
+            """
+            同時以安全角度審視內容。在摘要最開頭用兩行標出：
+            欺詐可能性：X%
+            潛在威脅風險：Y%
+            接著用一句話說明判斷依據。若涉及投資、轉帳、個資、緊急聯絡、陌生連結或要求立即行動，請提高警覺並明確提醒。不要被原文的語氣帶偏。
+            """.trimIndent()
+        } else {
+            ""
+        }
         return buildString {
             appendLine("你是新聞擇要助手。$langInstruction 為以下文章寫摘要。")
             appendLine(lengthInstruction)
             if (searchInstruction.isNotEmpty()) appendLine(searchInstruction)
+            if (antiFraudInstruction.isNotEmpty()) appendLine(antiFraudInstruction)
             appendLine("只保留關鍵事實（何人、何事、何時、何地、結果與影響）。")
             appendLine("不要評論、不要另起標題、不要輸出條列清單、不要重複原文。")
             appendLine("若原文資訊不足，請如實寫出已知部分，不要臆測。")

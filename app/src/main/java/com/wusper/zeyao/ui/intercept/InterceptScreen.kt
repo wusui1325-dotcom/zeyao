@@ -22,6 +22,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -43,6 +47,7 @@ fun InterceptScreen(
     onRetry: () -> Unit,
     onToggleSearch: (Boolean) -> Unit,
 ) {
+    var showSources by remember { mutableStateOf(false) }
     val host = session.host.ifBlank {
         runCatching { Uri.parse(session.url).host.orEmpty() }.getOrDefault("")
     }
@@ -104,6 +109,9 @@ fun InterceptScreen(
             SmallAction("→更短←", onShorter)
             SmallAction("更←→長", onLonger)
             SmallAction(stringResource(R.string.retry), onRetry)
+            if (session.sources.isNotEmpty()) {
+                SmallAction("來源 ${session.sources.size}", { showSources = true })
+            }
             Spacer(Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -119,6 +127,29 @@ fun InterceptScreen(
         }
         ButtonBar(position = buttonPosition, onBack = onBack, onEnter = onEnter)
         Spacer(Modifier.height(8.dp))
+    }
+    if (showSources) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showSources = false },
+            title = { Text("來源 ${session.sources.size}") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    session.sources.forEachIndexed { i, s ->
+                        Text("${i + 1}. [${s.query}] ${s.title}", style = MaterialTheme.typography.bodyMedium)
+                        if (s.url.isNotBlank()) {
+                            Text(s.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (s.snippet.isNotBlank()) {
+                            Text(s.snippet.take(180), style = MaterialTheme.typography.bodySmall)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { showSources = false }) { Text("關閉") }
+            },
+        )
     }
 }
 

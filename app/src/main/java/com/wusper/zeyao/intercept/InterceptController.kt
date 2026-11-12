@@ -44,6 +44,7 @@ data class InterceptSession(
     val error: String? = null,
     val streaming: Boolean = true,
     val decided: Boolean = false,
+    val sources: List<com.wusper.zeyao.ai.FactChecker.Source> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
 )
 
@@ -516,6 +517,22 @@ object InterceptController {
                 }
                 val useSearch = (searchOverride ?: settings.searchNewsEnabled) &&
                     settings.providerId == "deepseek"
+                var factSources = emptyList<com.wusper.zeyao.ai.FactChecker.Source>()
+                var factContext = ""
+                if (settings.authenticityCheckEnabled && settings.providerId == "deepseek") {
+                    factSources = com.wusper.zeyao.ai.FactChecker.check(
+                        apiKey = key,
+                        providerId = settings.providerId,
+                        model = "deepseek-flash",
+                        title = workingTitle,
+                        url = workingUrl,
+                        articleText = article?.text.orEmpty(),
+                    )
+                    factContext = com.wusper.zeyao.ai.FactChecker.format(factSources)
+                    if (factSources.isNotEmpty()) {
+                        updateSession(id) { it.copy(sources = factSources) }
+                    }
+                }
                 val searchContext = if (useSearch) {
                     val hits = com.wusper.zeyao.ai.DeepSeekSearch.searchForArticle(
                         apiKey = key,
@@ -537,6 +554,11 @@ object InterceptController {
                         appendLine()
                         appendLine("---")
                     }
+                    if (factContext.isNotBlank()) {
+                        append(factContext)
+                        appendLine()
+                        appendLine("---")
+                    }
                     append(article?.text.orEmpty())
                 }
                 client.streamSummary(
@@ -548,6 +570,7 @@ object InterceptController {
                         language = settings.language,
                         summaryLength = lengthOverride ?: settings.summaryLength,
                         searchNews = useSearch,
+                        antiFraud = settings.antiFraudEnabled,
                     ),
                 ).collect { delta ->
                     if (delta.isEmpty()) return@collect

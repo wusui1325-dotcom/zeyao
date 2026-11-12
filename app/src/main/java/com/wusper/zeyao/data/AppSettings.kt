@@ -49,6 +49,10 @@ data class AppSettings(
     val interceptAllPages: Boolean = false,
     /** When intercept-all is on, ask before opening 擇要. Off = always summarize. */
     val askBeforeSummary: Boolean = false,
+    /** Add anti-fraud guidance and require risk percentages at the start. */
+    val antiFraudEnabled: Boolean = false,
+    /** Extract facts and search each one before summarizing. */
+    val authenticityCheckEnabled: Boolean = false,
 )
 
 enum class SummaryLength { SHORT, NORMAL, LONG }

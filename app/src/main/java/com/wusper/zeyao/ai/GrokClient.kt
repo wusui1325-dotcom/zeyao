@@ -80,7 +80,7 @@ class GrokClient : AiClient {
                 "messages",
                 JSONArray().put(
                     JSONObject().put("role", "user")
-                        .put("content", SummaryPrompt.build(title, url, articleText, params.language, params.summaryLength, params.searchNews)),
+                        .put("content", SummaryPrompt.build(title, url, articleText, params.language, params.summaryLength, params.searchNews, params.antiFraud)),
                 ),
             )
             .put("temperature", params.temperature)
