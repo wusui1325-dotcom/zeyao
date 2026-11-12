@@ -12,14 +12,24 @@ android {
         applicationId = "com.wusper.zeyao"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.1.5"
+        versionCode = 100
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("ZEYAO_KEYSTORE") ?: "keystore.jks")
+            storePassword = System.getenv("ZEYAO_STORE_PASS") ?: ""
+            keyAlias = System.getenv("ZEYAO_KEY_ALIAS") ?: "zeyao"
+            keyPassword = System.getenv("ZEYAO_KEY_PASS") ?: ""
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
