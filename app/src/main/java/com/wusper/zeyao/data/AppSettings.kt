@@ -53,6 +53,8 @@ data class AppSettings(
     val antiFraudEnabled: Boolean = false,
     /** Extract facts and search each one before summarizing. */
     val authenticityCheckEnabled: Boolean = false,
+    /** Use DuckDuckGo when official DeepSeek Search returns nothing. */
+    val backupSearchEnabled: Boolean = false,
 )
 
 enum class SummaryLength { SHORT, NORMAL, LONG }

@@ -127,7 +127,7 @@ object DeepSeekSearch {
     fun formatForPrompt(hits: List<Hit>): String {
         if (hits.isEmpty()) return ""
         return buildString {
-            appendLine("以下是 DeepSeek Search API 的搜索結果，請優先核對這些資料再撰寫摘要：")
+            appendLine("以下是搜索結果，請優先核對這些資料再撰寫摘要：")
             hits.take(5).forEachIndexed { index, hit ->
                 append(index + 1).append(". ")
                 if (hit.title.isNotBlank()) append(hit.title).append(" ")
@@ -138,4 +138,49 @@ object DeepSeekSearch {
             }
         }
     }
+
+    suspend fun searchWithFallback(apiKey: String, query: String, fallback: Boolean, count: Int = 5): List<Hit> {
+        val official = search(apiKey, query, count)
+        if (official.isNotEmpty() || !fallback) return official
+        return duckDuckGo(query, count)
+    }
+
+    private suspend fun duckDuckGo(query: String, count: Int): List<Hit> = withContext(Dispatchers.IO) {
+        val q = query.trim().take(128)
+        if (q.isBlank()) return@withContext emptyList()
+        val encoded = java.net.URLEncoder.encode(q, "UTF-8")
+        val request = Request.Builder()
+            .url("https://html.duckduckgo.com/html/?q=$encoded")
+            .header("User-Agent", "Mozilla/5.0")
+            .get()
+            .build()
+        runCatching {
+            HttpClients.init.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use emptyList()
+                parseDuck(response.body?.string().orEmpty(), count)
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun parseDuck(html: String, count: Int): List<Hit> {
+        val out = mutableListOf<Hit>()
+        val link = Regex("""<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>""", RegexOption.IGNORE_CASE)
+        val snippet = Regex("""class="result__snippet"[^>]*>(.*?)</""", RegexOption.IGNORE_CASE)
+        val links = link.findAll(html).toList()
+        val snippets = snippet.findAll(html).map { clean(it.groupValues[1]) }.toList()
+        links.take(count).forEachIndexed { i, m ->
+            val url = decodeDuck(m.groupValues[1])
+            val title = clean(m.groupValues[2])
+            if (url.startsWith("http")) out += Hit(title, url, snippets.getOrElse(i) { "" }, "")
+        }
+        return out
+    }
+
+    private fun decodeDuck(href: String): String {
+        val uddg = Regex("""uddg=([^&]+)""").find(href)?.groupValues?.getOrNull(1)
+        return if (uddg != null) java.net.URLDecoder.decode(uddg, "UTF-8") else href
+    }
+
+    private fun clean(raw: String): String =
+        raw.replace(Regex("<[^>]+>"), "").replace("&", "&").trim()
 }

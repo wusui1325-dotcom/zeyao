@@ -41,8 +41,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.4.0
-          name: Zeyao 1.4.0
+          tag_name: v1.5.0
+          name: Zeyao 1.5.0
           body: |
             擇要 1.0.0
             - 語言選擇（简 / 繁 / Eng）

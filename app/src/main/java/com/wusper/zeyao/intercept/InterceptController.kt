@@ -527,6 +527,7 @@ object InterceptController {
                         title = workingTitle,
                         url = workingUrl,
                         articleText = article?.text.orEmpty(),
+                        fallback = settings.backupSearchEnabled,
                     )
                     factContext = com.wusper.zeyao.ai.FactChecker.format(factSources)
                     if (factSources.isNotEmpty()) {
@@ -534,11 +535,11 @@ object InterceptController {
                     }
                 }
                 val searchContext = if (useSearch) {
-                    val hits = com.wusper.zeyao.ai.DeepSeekSearch.searchForArticle(
+                    val hits = com.wusper.zeyao.ai.DeepSeekSearch.searchWithFallback(
                         apiKey = key,
-                        title = workingTitle,
-                        url = workingUrl,
-                        articleText = article?.text.orEmpty(),
+                        query = workingTitle.ifBlank { workingUrl },
+                        fallback = settings.backupSearchEnabled,
+                        count = 5,
                     )
                     com.wusper.zeyao.ai.DeepSeekSearch.formatForPrompt(hits)
                 } else {

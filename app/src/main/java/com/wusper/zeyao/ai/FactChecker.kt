@@ -27,12 +27,13 @@ object FactChecker {
         title: String,
         url: String,
         articleText: String,
+        fallback: Boolean = false,
     ): List<Source> = withContext(Dispatchers.IO) {
         val facts = extractFacts(apiKey, providerId, model, title, url, articleText)
         if (facts.isEmpty()) return@withContext emptyList()
         coroutineScope {
             facts.map { fact ->
-                async { searchOne(apiKey, fact) }
+                async { searchOne(apiKey, fact, fallback) }
             }.awaitAll().flatten()
         }
     }
@@ -62,8 +63,8 @@ object FactChecker {
             .take(12)
     }
 
-    private suspend fun searchOne(apiKey: String, query: String): List<Source> {
-        val hits = DeepSeekSearch.search(apiKey, query, count = 2)
+    private suspend fun searchOne(apiKey: String, query: String, fallback: Boolean): List<Source> {
+        val hits = DeepSeekSearch.searchWithFallback(apiKey, query, fallback, count = 2)
         return hits.map { Source(query, it.title, it.url, it.summary.ifBlank { it.snippet }) }
     }
 

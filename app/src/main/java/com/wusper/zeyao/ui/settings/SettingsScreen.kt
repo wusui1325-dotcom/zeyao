@@ -356,6 +356,12 @@ fun SettingsScreen(
                 onChecked = { enabled -> onUpdate { it.copy(authenticityCheckEnabled = enabled) } },
             )
             SettingSwitch(
+                title = "備用搜索",
+                subtitle = "官方 DeepSeek Search 無結果或失敗時，改用 DuckDuckGo。",
+                checked = settings.backupSearchEnabled,
+                onChecked = { enabled -> onUpdate { it.copy(backupSearchEnabled = enabled) } },
+            )
+            SettingSwitch(
                 title = stringResource(R.string.pref_search),
                 subtitle = stringResource(R.string.pref_search_hint),
                 checked = settings.searchNewsEnabled,

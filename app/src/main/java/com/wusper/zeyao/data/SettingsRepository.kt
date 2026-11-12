@@ -53,6 +53,7 @@ class SettingsRepository(private val context: Context) {
             prefs[ASK_BEFORE] = next.askBeforeSummary
             prefs[ANTI_FRAUD] = next.antiFraudEnabled
             prefs[AUTHENTICITY] = next.authenticityCheckEnabled
+            prefs[BACKUP_SEARCH] = next.backupSearchEnabled
         }
     }
 
@@ -122,6 +123,7 @@ class SettingsRepository(private val context: Context) {
         askBeforeSummary = this[ASK_BEFORE] ?: false,
         antiFraudEnabled = this[ANTI_FRAUD] ?: false,
         authenticityCheckEnabled = this[AUTHENTICITY] ?: false,
+        backupSearchEnabled = this[BACKUP_SEARCH] ?: false,
     )
 
     private companion object {
@@ -152,5 +154,6 @@ class SettingsRepository(private val context: Context) {
         val ASK_BEFORE = booleanPreferencesKey("ask_before")
         val ANTI_FRAUD = booleanPreferencesKey("anti_fraud")
         val AUTHENTICITY = booleanPreferencesKey("authenticity")
+        val BACKUP_SEARCH = booleanPreferencesKey("backup_search")
     }
 }
