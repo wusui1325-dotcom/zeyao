@@ -1,5 +1,9 @@
 package com.wusper.zeyao.intercept
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -7,34 +11,45 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.WindowManager
 import android.widget.TextView
-import androidx.core.content.ContextCompat
-import com.wusper.zeyao.ZeyaoApp
+import androidx.core.app.NotificationCompat
+import com.wusper.zeyao.MainActivity
+import com.wusper.zeyao.R
 
 /**
- * Small always-on-top button. Tap once to arm the next link click
- * for the accessibility service.
+ * Small always-on-top button. Tap to arm the next link click.
+ * Drag to reposition. Runs as a foreground service so the system does not kill it.
  */
 class ClickInterceptOverlay : Service() {
 
     private var windowManager: WindowManager? = null
     private var overlayView: TextView? = null
+    private var layoutParams: WindowManager.LayoutParams? = null
     private var armed = false
+
+    private var initialX = 0
+    private var initialY = 0
+    private var initialTouchX = 0f
+    private var initialTouchY = 0f
+    private var moved = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        showOverlay()
+        ensureChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
+        startForeground(NOTIFICATION_ID, buildNotification())
         if (overlayView == null) showOverlay()
         return START_STICKY
     }
@@ -51,23 +66,39 @@ class ClickInterceptOverlay : Service() {
             textSize = 18f
             setTextColor(0xFFFFFFFF.toInt())
             setBackgroundColor(0xCCB33A2B.toInt())
-            setPadding(28, 16, 28, 16)
-            setOnClickListener {
-                armed = !armed
-                text = if (armed) "擇●" else "擇"
-                InterceptController.clickArmed = armed
-                // Auto-disarm after a short window so it doesn't stay forever.
-                if (armed) {
-                    postDelayed({
-                        if (armed) {
-                            armed = false
-                            text = "擇"
-                            InterceptController.clickArmed = false
-                        }
-                    }, 8_000)
+            setPadding(36, 20, 36, 20)
+            elevation = 12f
+        }
+        tv.setOnTouchListener { _, event ->
+            val params = layoutParams ?: return@setOnTouchListener false
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialX = params.x
+                    initialY = params.y
+                    initialTouchX = event.rawX
+                    initialTouchY = event.rawY
+                    moved = false
+                    true
                 }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = (event.rawX - initialTouchX).toInt()
+                    val dy = (event.rawY - initialTouchY).toInt()
+                    if (kotlin.math.abs(dx) > 8 || kotlin.math.abs(dy) > 8) moved = true
+                    params.x = initialX + dx
+                    params.y = initialY + dy
+                    runCatching { windowManager?.updateViewLayout(tv, params) }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!moved) {
+                        toggleArmed(tv)
+                    }
+                    true
+                }
+                else -> false
             }
         }
+
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -77,18 +108,36 @@ class ClickInterceptOverlay : Service() {
                 @Suppress("DEPRECATION")
                 WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT,
         ).apply {
-            gravity = Gravity.TOP or Gravity.END
-            x = 32
-            y = 180
+            gravity = Gravity.TOP or Gravity.START
+            x = 48
+            y = 240
         }
+        layoutParams = params
         try {
             windowManager?.addView(tv, params)
             overlayView = tv
         } catch (_: Exception) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
+        }
+    }
+
+    private fun toggleArmed(tv: TextView) {
+        armed = !armed
+        tv.text = if (armed) "擇●" else "擇"
+        InterceptController.clickArmed = armed
+        if (armed) {
+            tv.postDelayed({
+                if (armed) {
+                    armed = false
+                    tv.text = "擇"
+                    InterceptController.clickArmed = false
+                }
+            }, 12_000)
         }
     }
 
@@ -97,15 +146,54 @@ class ClickInterceptOverlay : Service() {
             runCatching { windowManager?.removeView(view) }
         }
         overlayView = null
+        layoutParams = null
         InterceptController.clickArmed = false
+    }
+
+    private fun ensureChannel() {
+        if (Build.VERSION.SDK_INT < 26) return
+        val nm = getSystemService(NotificationManager::class.java)
+        if (nm.getNotificationChannel(CHANNEL_ID) != null) return
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "點擊攔截懸浮窗",
+            NotificationManager.IMPORTANCE_MIN,
+        ).apply {
+            description = "保持擇要懸浮窗顯示"
+            setShowBadge(false)
+        }
+        nm.createNotificationChannel(channel)
+    }
+
+    private fun buildNotification(): Notification {
+        val open = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("擇要點擊攔截")
+            .setContentText("懸浮窗已開啟，點一下武裝下一次點擊")
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setContentIntent(open)
+            .build()
     }
 
     companion object {
         private const val ACTION_STOP = "com.wusper.zeyao.CLICK_OVERLAY_STOP"
+        private const val CHANNEL_ID = "zeyao_click_overlay"
+        private const val NOTIFICATION_ID = 42
 
         fun start(context: Context) {
             val intent = Intent(context, ClickInterceptOverlay::class.java)
-            context.startService(intent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
         }
 
         fun stop(context: Context) {

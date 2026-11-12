@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.wusper.zeyao.data.AppSettings
@@ -83,6 +84,7 @@ fun SettingsScreen(
     var pickingStart by remember { mutableStateOf(false) }
     var pickingEnd by remember { mutableStateOf(false) }
     var pickingBrowser by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Column(
         Modifier
@@ -298,6 +300,23 @@ fun SettingsScreen(
                 onChecked = { enabled -> onUpdate { s -> s.copy(continueOnExit = enabled) } },
             )
             Spacer(Modifier.height(32.dp))
+            Text(
+                "擇要 GitHub",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
+                        val intent = android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://github.com/wusui1325-dotcom/zeyao"),
+                        )
+                        runCatching { context.startActivity(intent) }
+                    }
+                    .padding(vertical = 12.dp),
+            )
+            Spacer(Modifier.height(16.dp))
         }
     }
 

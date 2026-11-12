@@ -90,7 +90,12 @@
 
         <service
             android:name=".intercept.ClickInterceptOverlay"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="click intercept overlay" />
+        </service>
 
         <service
             android:name=".intercept.ZeyaoAccessibilityService"
