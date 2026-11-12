@@ -42,6 +42,8 @@ class SettingsRepository(private val context: Context) {
             prefs[CONTINUE] = next.continueOnExit
             prefs[HANDOFF] = next.handoffBrowserPackage
             prefs[HTTPS_DECRYPT] = next.httpsDecryptEnabled
+            prefs[CLICK_INTERCEPT] = next.clickInterceptEnabled
+            prefs[CLICK_CONSUME] = next.clickInterceptConsume
         }
     }
 
@@ -50,6 +52,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun setInterceptEnabled(value: Boolean) = update { it.copy(interceptEnabled = value) }
     suspend fun setPersistentEnabled(value: Boolean) = update { it.copy(persistentEnabled = value) }
     suspend fun setHttpsDecryptEnabled(value: Boolean) = update { it.copy(httpsDecryptEnabled = value) }
+    suspend fun setClickInterceptEnabled(value: Boolean) = update { it.copy(clickInterceptEnabled = value) }
+    suspend fun setClickInterceptConsume(value: Boolean) = update { it.copy(clickInterceptConsume = value) }
 
     /**
      * Whether intercept should fire right now, given stored settings.
@@ -97,6 +101,8 @@ class SettingsRepository(private val context: Context) {
         continueOnExit = this[CONTINUE] ?: true,
         handoffBrowserPackage = this[HANDOFF].orEmpty(),
         httpsDecryptEnabled = this[HTTPS_DECRYPT] ?: false,
+        clickInterceptEnabled = this[CLICK_INTERCEPT] ?: false,
+        clickInterceptConsume = this[CLICK_CONSUME] ?: false,
     )
 
     private companion object {
@@ -116,5 +122,7 @@ class SettingsRepository(private val context: Context) {
         val CONTINUE = booleanPreferencesKey("continue_on_exit")
         val HANDOFF = stringPreferencesKey("handoff_browser")
         val HTTPS_DECRYPT = booleanPreferencesKey("https_decrypt")
+        val CLICK_INTERCEPT = booleanPreferencesKey("click_intercept")
+        val CLICK_CONSUME = booleanPreferencesKey("click_intercept_consume")
     }
 }

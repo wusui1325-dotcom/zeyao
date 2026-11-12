@@ -23,6 +23,15 @@ data class AppSettings(
     val handoffBrowserPackage: String = "",
     /** Optional local HTTPS decryption (requires the user-installed 擇要 CA). */
     val httpsDecryptEnabled: Boolean = false,
+    /**
+     * Floating-window click intercept (default off).
+     * When on, a small overlay lets the user arm the next link click
+     * in apps such as WeChat; the accessibility service then extracts
+     * the URL and shows 擇要 before navigation.
+     */
+    val clickInterceptEnabled: Boolean = false,
+    /** When click intercept is armed, whether to try to consume (block) the original click. Default off. */
+    val clickInterceptConsume: Boolean = false,
 )
 
 enum class ThemeStyle { FOLLOW_SYSTEM, DARK, LIGHT }

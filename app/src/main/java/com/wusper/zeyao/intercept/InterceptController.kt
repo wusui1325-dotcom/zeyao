@@ -82,6 +82,10 @@ object InterceptController {
     @Volatile
     var accessibility: ZeyaoAccessibilityService? = null
 
+    /** Armed by the floating overlay for the next link click. */
+    @Volatile
+    var clickArmed: Boolean = false
+
     @Volatile
     var interceptArmedCached: Boolean = false
         private set

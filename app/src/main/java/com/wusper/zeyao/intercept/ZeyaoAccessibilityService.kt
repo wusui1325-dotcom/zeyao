@@ -5,6 +5,7 @@ import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.wusper.zeyao.BuildConfig
+import com.wusper.zeyao.ZeyaoApp
 import com.wusper.zeyao.data.BrowserPackages
 import com.wusper.zeyao.data.DefaultBrowser
 import com.wusper.zeyao.data.NewsHosts
@@ -32,15 +33,24 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         if (InterceptController.appUiVisible) return
         val pkg = event.packageName?.toString() ?: return
         if (pkg == BuildConfig.APPLICATION_ID) return
+
+        // Click-intercept path (floating window armed)
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED &&
+            InterceptController.clickArmed
+        ) {
+            handleArmedClick(event, pkg)
+            return
+        }
+
         if (!BrowserPackages.isBrowser(pkg, defaultBrowser)) return
         val type = event.eventType
         if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             type != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
             type != AccessibilityEvent.TYPE_VIEW_FOCUSED
         ) {
-            // Ignore TYPE_VIEW_TEXT_CHANGED: that is usually the user typing in the omnibox.
             return
         }
+        // ... existing address-bar logic continues below
         val now = SystemClock.elapsedRealtime()
         val last = lastScanAt[pkg] ?: 0L
         if (type == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && now - last < 250) return
@@ -58,6 +68,50 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         } finally {
             root.recycleSafely()
         }
+    }
+
+    private fun handleArmedClick(event: AccessibilityEvent, pkg: String) {
+        val source = event.source ?: return
+        try {
+            val url = findUrlInNode(source) ?: return
+            InterceptController.clickArmed = false
+            InterceptController.onUrlDetected(url, title = "", packageName = pkg)
+            val consume = runCatching {
+                ZeyaoApp.instance.settings.current().clickInterceptConsume
+            }.getOrDefault(false)
+            if (consume) {
+                // Best-effort: go back so the original navigation is less likely to proceed.
+                performGlobalAction(GLOBAL_ACTION_BACK)
+            }
+        } finally {
+            source.recycleSafely()
+        }
+    }
+
+    private fun findUrlInNode(node: AccessibilityNodeInfo): String? {
+        // Prefer the clicked node itself, then walk parents and children a bit.
+        val candidates = mutableListOf<String>()
+        fun collect(n: AccessibilityNodeInfo, depth: Int) {
+            if (depth > 4) return
+            n.urlCandidate().let { if (it.isNotBlank()) candidates += it }
+            for (i in 0 until n.childCount) {
+                n.getChild(i)?.let { child ->
+                    collect(child, depth + 1)
+                    child.recycleSafely()
+                }
+            }
+        }
+        collect(node, 0)
+        var parent = node.parent
+        var hops = 0
+        while (parent != null && hops < 3) {
+            parent.urlCandidate().let { if (it.isNotBlank()) candidates += it }
+            val next = parent.parent
+            parent.recycleSafely()
+            parent = next
+            hops++
+        }
+        return candidates.firstNotNullOfOrNull { normalizeAddress(it) }
     }
 
     override fun onInterrupt() = Unit

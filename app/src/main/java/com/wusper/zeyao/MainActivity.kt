@@ -158,6 +158,12 @@ class MainActivity : ComponentActivity() {
                                     scope.launch { handleHttpsDecryptToggle(enabled) }
                                 },
                                 onInstallCa = { installZeyaoCa() },
+                                onToggleClickIntercept = { enabled ->
+                                    scope.launch { handleClickInterceptToggle(enabled) }
+                                },
+                                onToggleClickConsume = { enabled ->
+                                    scope.launch { app.settings.setClickInterceptConsume(enabled) }
+                                },
                             )
                         }
                         route == Route.OTHER -> {
@@ -263,6 +269,24 @@ class MainActivity : ComponentActivity() {
         }
         app.settings.setHttpsDecryptEnabled(enabled)
         InterceptController.refreshCaInstalled()
+    }
+
+    private suspend fun handleClickInterceptToggle(enabled: Boolean) {
+        val app = ZeyaoApp.instance
+        app.settings.setClickInterceptEnabled(enabled)
+        if (enabled) {
+            if (!android.provider.Settings.canDrawOverlays(this)) {
+                Toast.makeText(this, "請先允許懸浮窗權限", Toast.LENGTH_LONG).show()
+                val intent = Intent(
+                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:$packageName"),
+                )
+                startActivity(intent)
+            }
+            com.wusper.zeyao.intercept.ClickInterceptOverlay.start(this)
+        } else {
+            com.wusper.zeyao.intercept.ClickInterceptOverlay.stop(this)
+        }
     }
 
     private fun installZeyaoCa() {

@@ -76,6 +76,8 @@ fun SettingsScreen(
     caInstalled: Boolean,
     onToggleHttpsDecrypt: (Boolean) -> Unit,
     onInstallCa: () -> Unit,
+    onToggleClickIntercept: (Boolean) -> Unit,
+    onToggleClickConsume: (Boolean) -> Unit,
 ) {
     var pickingApps by remember { mutableStateOf(false) }
     var pickingStart by remember { mutableStateOf(false) }
@@ -164,6 +166,21 @@ fun SettingsScreen(
                 onClick = onOpenAccessibilitySettings,
             )
 
+
+            Spacer(Modifier.height(8.dp))
+            SectionLabel("點擊攔截（微信等）")
+            SettingSwitch(
+                title = "點擊攔截",
+                subtitle = "預設關閉。開啟後會出現小型懸浮窗。點懸浮窗一次即「武裝」下一次點擊；在微信等 App 裡點連結時，擇要會先出現。需要無障礙與懸浮窗權限。",
+                checked = settings.clickInterceptEnabled,
+                onChecked = onToggleClickIntercept,
+            )
+            SettingSwitch(
+                title = "消耗原點擊",
+                subtitle = "預設關閉。開啟後，當擇要出現時會嘗試立刻返回，減少原頁面同時載入。部分 App 仍可能繼續跳轉。",
+                checked = settings.clickInterceptConsume,
+                onChecked = onToggleClickConsume,
+            )
 
             Spacer(Modifier.height(8.dp))
             SectionLabel("HTTPS 解密")
