@@ -70,7 +70,7 @@
     <string name="section_language">Language</string>
     <string name="other_lang_hint">Choose the interface language. Some text updates the next time you open the related page.</string>
     <string name="section_about">About</string>
-    <string name="about_text">Zeyao 1.2.0\nA Wusper app. Intercepts news pages locally and generates streaming summaries with your own AI key.</string>
+    <string name="about_text">Zeyao 1.3.0\nA Wusper app. Intercepts news pages locally and generates streaming summaries with your own AI key.</string>
 
     <string name="recent_records">Recent records</string>
     <string name="intercept_news">Intercept news pages</string>
