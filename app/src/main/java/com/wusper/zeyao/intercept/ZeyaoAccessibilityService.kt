@@ -5,7 +5,6 @@ import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.wusper.zeyao.BuildConfig
-import com.wusper.zeyao.ZeyaoApp
 import com.wusper.zeyao.data.BrowserPackages
 import com.wusper.zeyao.data.DefaultBrowser
 import com.wusper.zeyao.data.NewsHosts
@@ -26,13 +25,6 @@ class ZeyaoAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         InterceptController.accessibility = this
         defaultBrowser = runCatching { DefaultBrowser.packageName(this) }.getOrNull()
-        // Refresh the consume flag once on connect.
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching {
-                InterceptController.clickConsume =
-                    ZeyaoApp.instance.settings.current().clickInterceptConsume
-            }
-        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
