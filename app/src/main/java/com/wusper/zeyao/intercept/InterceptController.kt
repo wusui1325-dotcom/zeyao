@@ -250,16 +250,20 @@ object InterceptController {
                 if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
                 return@launch
             }
-            if (!NewsHosts.isClassifiableUrl(clean) || isUrlCooled(clean)) {
-                if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
-                return@launch
-            }
             if (settings.interceptAllPages) {
+                if (isUrlCooled(clean)) {
+                    if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
+                    return@launch
+                }
                 if (settings.askBeforeSummary) {
                     launchAsk(clean, title, packageName, startFrom)
                 } else {
                     startOrRefine(clean, title, packageName, startFrom)
                 }
+                return@launch
+            }
+            if (!NewsHosts.isClassifiableUrl(clean) || isUrlCooled(clean)) {
+                if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
                 return@launch
             }
             val now = SystemClock.elapsedRealtime()
@@ -448,7 +452,9 @@ object InterceptController {
                     delay(50)
                 }
             }
-            if (NewsHosts.isBareHostUrl(workingUrl) || !NewsHosts.isClassifiableUrl(workingUrl)) {
+            if ((NewsHosts.isBareHostUrl(workingUrl) || !NewsHosts.isClassifiableUrl(workingUrl)) &&
+                !app.settings.current().interceptAllPages
+            ) {
                 fail(id, "尚未取得文章網址，仍可進入或返回")
                 return@launch
             }

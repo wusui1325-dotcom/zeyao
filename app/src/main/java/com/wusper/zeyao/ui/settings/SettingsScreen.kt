@@ -118,7 +118,7 @@ fun SettingsScreen(
                 subtitle = if (settings.interceptAllPages) {
                     if (settings.askBeforeSummary) "已開。攔截後會詢問是否擇要。" else "已開。攔截後一律直接擇要。"
                 } else {
-                    "開啟後攔截所有可分類網頁，不只新聞。"
+                    "開啟後攔截所有網頁，不做新聞驗證，直接擇要。"
                 },
                 checked = settings.interceptAllPages,
                 onChecked = { enabled -> onUpdate { it.copy(interceptAllPages = enabled) } },

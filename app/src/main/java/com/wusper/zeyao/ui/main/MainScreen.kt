@@ -141,7 +141,7 @@ private fun AllPagesCard(
                     if (enabled) {
                         if (askBefore) "攔截後會詢問是否擇要" else "攔截後一律直接擇要"
                     } else {
-                        "開啟後攔截所有可分類網頁，不只新聞"
+                        "開啟後攔截所有網頁，不做新聞驗證，直接擇要"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,

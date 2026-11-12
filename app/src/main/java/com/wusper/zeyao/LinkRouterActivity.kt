@@ -39,21 +39,34 @@ class LinkRouterActivity : Activity() {
             val settings = withContext(Dispatchers.IO) { app.settings.current() }
             val url = NewsHosts.unwrapUrl(raw)
             val armed = app.settings.isInterceptArmed(settings)
-            val classifiable = NewsHosts.isClassifiableUrl(url)
             val cooled = InterceptController.isUrlCooled(url)
-            if (armed && classifiable && !cooled) {
-                startActivity(
-                    Intent(this@LinkRouterActivity, VerifyActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
-                            Intent.FLAG_ACTIVITY_NO_ANIMATION or
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        putExtra(VerifyActivity.EXTRA_URL, url)
-                        putExtra(VerifyActivity.EXTRA_TITLE, "")
-                        putExtra(VerifyActivity.EXTRA_PACKAGE, callingPackage)
-                        putExtra(VerifyActivity.EXTRA_HANDOFF, true)
-                    },
-                )
+            val intercept = armed && !cooled && (settings.interceptAllPages || NewsHosts.isClassifiableUrl(url))
+            if (intercept) {
+                if (settings.interceptAllPages && settings.askBeforeSummary) {
+                    startActivity(
+                        Intent(this@LinkRouterActivity, AskInterceptActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
+                            putExtra(AskInterceptActivity.EXTRA_URL, url)
+                            putExtra(AskInterceptActivity.EXTRA_TITLE, "")
+                            putExtra(AskInterceptActivity.EXTRA_PACKAGE, callingPackage)
+                        },
+                    )
+                } else if (settings.interceptAllPages) {
+                    InterceptController.startOrRefine(url, title = "", packageName = callingPackage, startFrom = this@LinkRouterActivity)
+                } else {
+                    startActivity(
+                        Intent(this@LinkRouterActivity, VerifyActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                                Intent.FLAG_ACTIVITY_NO_ANIMATION or
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            putExtra(VerifyActivity.EXTRA_URL, url)
+                            putExtra(VerifyActivity.EXTRA_TITLE, "")
+                            putExtra(VerifyActivity.EXTRA_PACKAGE, callingPackage)
+                            putExtra(VerifyActivity.EXTRA_HANDOFF, true)
+                        },
+                    )
+                }
                 finish()
                 overridePendingTransition(0, 0)
             } else {
