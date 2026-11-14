@@ -41,14 +41,13 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.7.1
-          name: Zeyao 1.7.1
+          tag_name: v1.8.0
+          name: Zeyao 1.8.0
           body: |
-            擇要 1.7.1
-            - 強化 URL canonical / slug 匹配（項目 8）
-            - 新增高對比主題選項（項目 33）
-            - 保留前版所有優化（快取、搜尋、CA 過期、攔截計數、TlsMitm 超時等）
-            - 版本 1.7.1
+            擇要 1.8.0
+            - 模型 fallback 改為可設定（項目 9）
+            - 強化 URL 匹配、高對比主題、CA 過期、攔截統計等
+            - 版本 1.8.0
           files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false

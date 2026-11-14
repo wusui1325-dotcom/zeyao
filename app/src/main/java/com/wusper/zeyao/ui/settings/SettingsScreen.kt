@@ -422,6 +422,11 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Text(
+                "備用模型：${if (settings.fallbackModels.isBlank()) "內建" else settings.fallbackModels}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(4.dp))
             SettingSwitch(
                 title = "僅解密已知新聞域名",
@@ -454,7 +459,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(24.dp))
             Text(
-                "版本 1.7.1",
+                "版本 1.8.0",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),

@@ -40,6 +40,18 @@ enum class AiProvider(
     companion object {
         fun fromId(id: String): AiProvider =
             entries.find { it.id == id } ?: DEEPSEEK
+
+        fun fallbackList(provider: AiProvider, custom: String): List<String> {
+            val user = custom.split(",", "，").map { it.trim() }.filter { it.isNotEmpty() }
+            if (user.isNotEmpty()) return user
+            return when (provider) {
+                DEEPSEEK -> listOf("deepseek-flash", "deepseek-v4-flash")
+                OPENAI -> listOf("gpt-4o", "gpt-4o-mini")
+                GEMINI -> listOf("gemini-2.0-flash", "gemini-1.5-flash")
+                CLAUDE -> listOf("claude-sonnet-4-0", "claude-3-5-sonnet-latest")
+                GROK -> listOf("grok-3", "grok-2")
+            }
+        }
     }
 }
 

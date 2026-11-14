@@ -57,6 +57,8 @@ data class AppSettings(
     val temperature: Double = 1.0,
     /** Preferred max tokens for summary. */
     val maxTokens: Int = 1200,
+    /** Comma-separated fallback models for the current provider. Empty = use built-in list. */
+    val fallbackModels: String = "",
     /** Local anonymous intercept counter for simple stats. */
     val interceptCount: Int = 0,
 )
