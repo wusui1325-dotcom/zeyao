@@ -5,7 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -42,6 +42,7 @@ class SettingsRepository(private val context: Context) {
             prefs[CONTINUE] = next.continueOnExit
             prefs[HANDOFF] = next.handoffBrowserPackage
             prefs[HTTPS_DECRYPT] = next.httpsDecryptEnabled
+            prefs[HTTPS_DECRYPT_NEWS_ONLY] = next.httpsDecryptNewsOnly
             prefs[CLICK_INTERCEPT] = next.clickInterceptEnabled
             prefs[CLICK_CONSUME] = next.clickInterceptConsume
             prefs[SITE_COOLDOWN] = next.siteCooldownSeconds
@@ -53,7 +54,12 @@ class SettingsRepository(private val context: Context) {
             prefs[ASK_BEFORE] = next.askBeforeSummary
             prefs[ANTI_FRAUD] = next.antiFraudEnabled
             prefs[AUTHENTICITY] = next.authenticityCheckEnabled
-            prefs[BACKUP_SEARCH] = next.backupSearchEnabled
+            prefs[TEMPERATURE] = next.temperature.toFloat()
+            prefs[MAX_TOKENS] = next.maxTokens
+            prefs[FALLBACK_MODELS] = next.fallbackModels
+            prefs[INTERCEPT_COUNT] = next.interceptCount
+            prefs[BIOMETRIC] = next.biometricUnlockEnabled
+            prefs[HIGH_CONTRAST] = next.highContrastEnabled
         }
     }
 
@@ -111,6 +117,7 @@ class SettingsRepository(private val context: Context) {
         continueOnExit = this[CONTINUE] ?: true,
         handoffBrowserPackage = this[HANDOFF].orEmpty(),
         httpsDecryptEnabled = this[HTTPS_DECRYPT] ?: false,
+        httpsDecryptNewsOnly = this[HTTPS_DECRYPT_NEWS_ONLY] ?: true,
         clickInterceptEnabled = this[CLICK_INTERCEPT] ?: false,
         clickInterceptConsume = this[CLICK_CONSUME] ?: false,
         siteCooldownSeconds = this[SITE_COOLDOWN] ?: 600,
@@ -123,7 +130,12 @@ class SettingsRepository(private val context: Context) {
         askBeforeSummary = this[ASK_BEFORE] ?: false,
         antiFraudEnabled = this[ANTI_FRAUD] ?: false,
         authenticityCheckEnabled = this[AUTHENTICITY] ?: false,
-        backupSearchEnabled = this[BACKUP_SEARCH] ?: false,
+        temperature = (this[TEMPERATURE] ?: 1.0f).toDouble(),
+        maxTokens = this[MAX_TOKENS] ?: 1200,
+        fallbackModels = this[FALLBACK_MODELS].orEmpty(),
+        interceptCount = this[INTERCEPT_COUNT] ?: 0,
+        biometricUnlockEnabled = this[BIOMETRIC] ?: false,
+        highContrastEnabled = this[HIGH_CONTRAST] ?: false,
     )
 
     private companion object {
@@ -143,6 +155,7 @@ class SettingsRepository(private val context: Context) {
         val CONTINUE = booleanPreferencesKey("continue_on_exit")
         val HANDOFF = stringPreferencesKey("handoff_browser")
         val HTTPS_DECRYPT = booleanPreferencesKey("https_decrypt")
+        val HTTPS_DECRYPT_NEWS_ONLY = booleanPreferencesKey("https_decrypt_news_only")
         val CLICK_INTERCEPT = booleanPreferencesKey("click_intercept")
         val CLICK_CONSUME = booleanPreferencesKey("click_intercept_consume")
         val SITE_COOLDOWN = intPreferencesKey("site_cooldown_seconds")
@@ -154,6 +167,11 @@ class SettingsRepository(private val context: Context) {
         val ASK_BEFORE = booleanPreferencesKey("ask_before")
         val ANTI_FRAUD = booleanPreferencesKey("anti_fraud")
         val AUTHENTICITY = booleanPreferencesKey("authenticity")
-        val BACKUP_SEARCH = booleanPreferencesKey("backup_search")
+        val TEMPERATURE = floatPreferencesKey("temperature")
+        val MAX_TOKENS = intPreferencesKey("max_tokens")
+        val FALLBACK_MODELS = stringPreferencesKey("fallback_models")
+        val INTERCEPT_COUNT = intPreferencesKey("intercept_count")
+        val BIOMETRIC = booleanPreferencesKey("biometric_unlock")
+        val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
     }
 }

@@ -28,6 +28,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.Slider
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
@@ -428,10 +429,19 @@ fun SettingsScreen(
             }
             Spacer(Modifier.height(8.dp))
             SectionLabel("生成參數")
-            Text(
-                "溫度：${String.format("%.1f", settings.temperature)}　最大字數：${settings.maxTokens}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Text("溫度：${String.format("%.1f", settings.temperature)}", style = MaterialTheme.typography.bodyMedium)
+            Slider(
+                value = settings.temperature.toFloat(),
+                onValueChange = { onUpdate { it.copy(temperature = it.toDouble()) } },
+                valueRange = 0f..2f,
+                steps = 19,
+            )
+            Text("最大字數：${settings.maxTokens}", style = MaterialTheme.typography.bodyMedium)
+            Slider(
+                value = settings.maxTokens.toFloat(),
+                onValueChange = { onUpdate { it.copy(maxTokens = it.toInt()) } },
+                valueRange = 200f..2000f,
+                steps = 18,
             )
             Text(
                 "備用模型：${if (settings.fallbackModels.isBlank()) "內建" else settings.fallbackModels}",
@@ -470,7 +480,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(24.dp))
             Text(
-                "版本 3.8.0",
+                "版本 3.9.0",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),

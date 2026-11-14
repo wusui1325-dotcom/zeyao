@@ -69,7 +69,13 @@ object InterceptController {
     val sessions: StateFlow<Map<String, InterceptSession>> = _sessions.asStateFlow()
 
     private val jobs = ConcurrentHashMap<String, Job>()
-    private val urlCooldownUntil = ConcurrentHashMap<String, Long>()
+    private val urlCooldownUntil = java.util.Collections.synchronizedMap(
+        object : LinkedHashMap<String, Long>(128, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>?): Boolean {
+                return size > 200
+            }
+        }
+    )
     private val hostPassthroughUntil = ConcurrentHashMap<String, Long>()
     private val lastSeenUrlAt = ConcurrentHashMap<String, Long>()
     private val holds = ConcurrentHashMap<String, MutableList<HeldConnection>>()

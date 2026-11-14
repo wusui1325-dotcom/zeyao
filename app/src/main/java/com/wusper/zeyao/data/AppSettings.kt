@@ -23,6 +23,8 @@ data class AppSettings(
     val handoffBrowserPackage: String = "",
     /** Optional local HTTPS decryption (requires the user-installed 擇要 CA). */
     val httpsDecryptEnabled: Boolean = false,
+    /** When true, HTTPS decryption only applies to known news domains (whitelist mode). */
+    val httpsDecryptNewsOnly: Boolean = true,
     /**
      * Floating-window click intercept (default off).
      * When on, a small overlay lets the user arm the next link click
@@ -61,6 +63,10 @@ data class AppSettings(
     val fallbackModels: String = "",
     /** Local anonymous intercept counter for simple stats. */
     val interceptCount: Int = 0,
+    /** Enable biometric unlock for API key access. */
+    val biometricUnlockEnabled: Boolean = false,
+    /** High contrast mode for accessibility. */
+    val highContrastEnabled: Boolean = false,
 )
 
 enum class SummaryLength { SHORT, NORMAL, LONG }
