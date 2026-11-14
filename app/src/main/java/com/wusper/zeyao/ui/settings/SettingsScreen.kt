@@ -242,6 +242,11 @@ fun SettingsScreen(
                 badText = stringResource(R.string.ca_bad),
                 onClick = onInstallCa,
             )
+            Text(
+                "已釘扎：accounts.google.com、play.google.com、login.microsoftonline.com 等系統登入不會解密。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             Spacer(Modifier.height(8.dp))
             SectionLabel(stringResource(R.string.section_browser))
@@ -465,7 +470,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(24.dp))
             Text(
-                "版本 3.1.0",
+                "版本 3.2.0",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),

@@ -48,7 +48,7 @@ class DeepSeekClient : AiClient {
         articleText: String,
         params: GenerationParams,
     ): Flow<String> = callbackFlow {
-        val models = listOf("deepseek-flash", "deepseek-v4-flash")
+        val models = AiProvider.fallbackList(AiProvider.DEEPSEEK, "")
         val worker = Thread({
             var lastError: Exception? = null
             for ((index, model) in models.withIndex()) {
