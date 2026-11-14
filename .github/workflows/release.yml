@@ -41,15 +41,16 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.5.0
-          name: Zeyao 1.5.0
+          tag_name: v1.6.1
+          name: Zeyao 1.6.1
           body: |
-            擇要 1.0.0
-            - 語言選擇（简 / 繁 / Eng）
-            - 擇要頁更短、更長、重試、搜索新聞
-            - DeepSeek 官方 Search API
-            - 可調同網站冷卻
-            - 懸浮窗點擊攔截
+            擇要 1.6.1
+            - 版本升至 1.6.1，啟用 release minify + shrink
+            - 更新依賴（Compose BOM、coroutines、jsoup、security-crypto）
+            - 更穩健的 SSE 解析與摘要 prompt 截斷
+            - 改善 AI 錯誤訊息
+            - 新增摘要記憶體快取（10 分鐘）
+            - 對應多項性能、穩定性與體驗優化
           files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false
