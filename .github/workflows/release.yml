@@ -41,14 +41,14 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.1.0
-          name: Zeyao 2.1.0
+          tag_name: v2.2.0
+          name: Zeyao 2.2.0
           body: |
-            擇要 2.1.0
-            - 攔截浮窗顯示預估時間（項目 30）
-            - ScreenshotBuffer 降低記憶體（MAX=2、間隔 1.5s）（項目 18）
+            擇要 2.2.0
+            - 攔截畫面進度文字強化（項目 30）
+            - 準備無障礙語意支援（項目 34）
             - 保留所有先前優化
-            - 版本 2.1.0
+            - 版本 2.2.0
           files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false
