@@ -2,7 +2,6 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
-    id("kotlin-kapt")
 }
 
 android {
@@ -77,9 +76,6 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.6")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jsoup:jsoup:1.18.3")
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    kapt("androidx.room:room-compiler:2.6.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.79")
     debugImplementation("androidx.compose.ui:ui-tooling")
