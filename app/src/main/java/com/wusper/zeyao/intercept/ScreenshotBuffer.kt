@@ -16,7 +16,7 @@ import java.io.File
  */
 object ScreenshotBuffer {
     private const val MAX = 2
-    private const val INTERVAL_MS = 2000L
+    private const val INTERVAL_MS = 2500L
     private const val DIR = "screenshots"
 
     private val handler = Handler(Looper.getMainLooper())
