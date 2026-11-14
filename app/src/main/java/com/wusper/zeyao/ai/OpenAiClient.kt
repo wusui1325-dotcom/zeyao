@@ -46,40 +46,50 @@ class OpenAiClient : AiClient {
         articleText: String,
         params: GenerationParams,
     ): Flow<String> = callbackFlow {
+        val models = AiProvider.fallbackList(AiProvider.OPENAI, params.fallbackModels)
         val worker = Thread({
-            try {
-                val body = JSONObject()
-                    .put("model", AiProvider.OPENAI.defaultModel)
-                    .put(
-                        "messages",
-                        JSONArray().put(
-                            JSONObject().put("role", "user")
-                                .put("content", SummaryPrompt.build(title, url, articleText, params.language, params.summaryLength, params.searchNews, params.antiFraud)),
-                        ),
-                    )
-                    .put("temperature", params.temperature)
-                    .put("max_tokens", params.maxTokens)
-                    .put("stream", true)
-                    .toString()
-                val request = Request.Builder()
-                    .url("$BASE/chat/completions")
-                    .header("Authorization", "Bearer $apiKey")
-                    .header("Content-Type", "application/json")
-                    .post(body.toRequestBody(JSON))
-                    .build()
-                HttpClients.stream.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        throw AiInitException(friendlyHttpError(response.code, "OpenAI"))
+            var lastError: Exception? = null
+            for (model in models) {
+                try {
+                    val body = JSONObject()
+                        .put("model", model)
+                        .put(
+                            "messages",
+                            JSONArray().put(
+                                JSONObject().put("role", "user")
+                                    .put("content", SummaryPrompt.build(title, url, articleText, params.language, params.summaryLength, params.searchNews, params.antiFraud)),
+                            ),
+                        )
+                        .put("temperature", params.temperature)
+                        .put("max_tokens", params.maxTokens)
+                        .put("stream", true)
+                        .toString()
+                    val request = Request.Builder()
+                        .url("$BASE/chat/completions")
+                        .header("Authorization", "Bearer $apiKey")
+                        .header("Content-Type", "application/json")
+                        .post(body.toRequestBody(JSON))
+                        .build()
+                    HttpClients.stream.newCall(request).execute().use { response ->
+                        if (response.code == 404 || response.code == 400) {
+                            lastError = AiInitException(friendlyHttpError(response.code, "OpenAI"))
+                            continue
+                        }
+                        if (!response.isSuccessful) {
+                            throw AiInitException(friendlyHttpError(response.code, "OpenAI"))
+                        }
+                        SseReader.readEvents(response) { data ->
+                            val text = extractOpenAiDelta(data)
+                            if (text.isNotEmpty()) trySend(text)
+                        }
                     }
-                    SseReader.readEvents(response) { data ->
-                        val text = extractOpenAiDelta(data)
-                        if (text.isNotEmpty()) trySend(text)
-                    }
+                    lastError = null
+                    break
+                } catch (e: Exception) {
+                    lastError = e
                 }
-                close()
-            } catch (e: Exception) {
-                close(e)
             }
+            if (lastError != null) close(lastError) else close()
         }, "openai-stream")
         worker.start()
         awaitClose { worker.interrupt() }

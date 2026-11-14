@@ -41,12 +41,12 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.3.0
-          name: Zeyao 3.3.0
+          tag_name: v3.4.0
+          name: Zeyao 3.4.0
           body: |
-            擇要 3.3.0
-            - 使用者設定的 fallbackModels 真正傳入 DeepSeek（項目 9 完整接入）
-            - 版本 3.3.0
+            擇要 3.4.0
+            - OpenAI 也使用使用者 fallbackModels（項目 9）
+            - 版本 3.4.0
           files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false
