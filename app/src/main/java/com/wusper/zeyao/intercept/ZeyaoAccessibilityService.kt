@@ -19,6 +19,7 @@ class ZeyaoAccessibilityService : AccessibilityService() {
 
     private val lastUrlByPackage = mutableMapOf<String, String>()
     private val lastScanAt = mutableMapOf<String, Long>()
+    private val lastEmitAt = mutableMapOf<String, Long>()
     @Volatile private var defaultBrowser: String? = null
 
     override fun onServiceConnected() {
@@ -70,8 +71,12 @@ class ZeyaoAccessibilityService : AccessibilityService() {
             if (rootPkg == BuildConfig.APPLICATION_ID) return
             if (rootPkg.isNotBlank() && rootPkg != pkg) return
             val url = extractAddressBarUrl(root, pkg) ?: return
+            val now = SystemClock.elapsedRealtime()
+            // Rate limit + dedup (item 6 related)
             if (lastUrlByPackage[pkg] == url) return
+            if ((lastEmitAt[pkg] ?: 0L) + 400 > now) return
             lastUrlByPackage[pkg] = url
+            lastEmitAt[pkg] = now
             InterceptController.onUrlDetected(url, title = "", packageName = pkg)
         } finally {
             root.recycleSafely()

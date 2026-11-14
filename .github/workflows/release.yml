@@ -41,13 +41,13 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.8.0
-          name: Zeyao 1.8.0
+          tag_name: v1.9.0
+          name: Zeyao 1.9.0
           body: |
-            擇要 1.8.0
-            - 模型 fallback 改為可設定（項目 9）
-            - 強化 URL 匹配、高對比主題、CA 過期、攔截統計等
-            - 版本 1.8.0
+            擇要 1.9.0
+            - 無障礙 URL 偵測加速率限制與去重
+            - 保留所有先前優化
+            - 版本 1.9.0
           files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false
