@@ -87,6 +87,8 @@ fun SettingsScreen(
     var pickingEnd by remember { mutableStateOf(false) }
     var pickingBrowser by remember { mutableStateOf(false) }
     var pickingCooldown by remember { mutableStateOf(false) }
+    var confirmHttps by remember { mutableStateOf(false) }
+    var confirmConsume by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     Column(
@@ -218,7 +220,9 @@ fun SettingsScreen(
                 title = stringResource(R.string.click_consume),
                 subtitle = stringResource(R.string.click_consume_hint),
                 checked = settings.clickInterceptConsume,
-                onChecked = onToggleClickConsume,
+                onChecked = { enabled ->
+                    if (enabled) confirmConsume = true else onToggleClickConsume(false)
+                },
             )
 
             Spacer(Modifier.height(8.dp))
@@ -227,7 +231,9 @@ fun SettingsScreen(
                 title = stringResource(R.string.https_decrypt),
                 subtitle = if (caInstalled) stringResource(R.string.https_decrypt_on) else stringResource(R.string.https_decrypt_off),
                 checked = settings.httpsDecryptEnabled,
-                onChecked = onToggleHttpsDecrypt,
+                onChecked = { enabled ->
+                    if (enabled) confirmHttps = true else onToggleHttpsDecrypt(false)
+                },
             )
             PermissionLine(
                 title = stringResource(R.string.ca_cert),
@@ -459,7 +465,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(24.dp))
             Text(
-                "版本 2.2.0",
+                "版本 2.3.0",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -508,6 +514,38 @@ fun SettingsScreen(
             onConfirm = { seconds ->
                 onUpdate { it.copy(siteCooldownSeconds = seconds) }
                 pickingCooldown = false
+            },
+        )
+    }
+    if (confirmHttps) {
+        AlertDialog(
+            onDismissRequest = { confirmHttps = false },
+            title = { Text("開啟 HTTPS 解密？") },
+            text = { Text("這會使用本機 CA 解密流量。僅建議在信任的網路使用，並只對新聞域名生效。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onToggleHttpsDecrypt(true)
+                    confirmHttps = false
+                }) { Text("確認開啟") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmHttps = false }) { Text("取消") }
+            },
+        )
+    }
+    if (confirmConsume) {
+        AlertDialog(
+            onDismissRequest = { confirmConsume = false },
+            title = { Text("開啟點擊攔截消耗？") },
+            text = { Text("開啟後會嘗試阻擋原始點擊。可能影響部分 App 操作，確認後再開啟。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onToggleClickConsume(true)
+                    confirmConsume = false
+                }) { Text("確認開啟") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmConsume = false }) { Text("取消") }
             },
         )
     }
