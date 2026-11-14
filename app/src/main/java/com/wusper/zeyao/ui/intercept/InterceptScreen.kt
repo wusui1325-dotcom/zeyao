@@ -82,7 +82,7 @@ fun InterceptScreen(
             Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
                 val body = when {
                     session.error != null && session.summary.isBlank() -> session.error
-                    session.summary.isBlank() && session.streaming -> stringResource(R.string.extracting)
+                    session.summary.isBlank() && session.streaming -> "正在擷取與摘要…（通常 5–15 秒）"
                     else -> session.summary
                 }
                 Text(

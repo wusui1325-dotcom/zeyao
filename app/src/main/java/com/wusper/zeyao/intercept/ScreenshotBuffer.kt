@@ -15,8 +15,8 @@ import java.io.File
  * Nothing is uploaded until the intercept flow explicitly asks for the previous frame.
  */
 object ScreenshotBuffer {
-    private const val MAX = 3
-    private const val INTERVAL_MS = 1000L
+    private const val MAX = 2
+    private const val INTERVAL_MS = 1500L
     private const val DIR = "screenshots"
 
     private val handler = Handler(Looper.getMainLooper())
