@@ -12,23 +12,24 @@ android {
         applicationId = "com.wusper.zeyao"
         minSdk = 26
         targetSdk = 35
-        versionCode = 150
-        versionName = "1.5.0"
+        versionCode = 161
+        versionName = "1.6.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
         create("release") {
-            storeFile = file(System.getenv("ZEYAO_KEYSTORE") ?: "keystore.jks")
-            storePassword = System.getenv("ZEYAO_STORE_PASS") ?: ""
+            storeFile = file(System.getenv("ZEYAO_KEYSTORE") ?: "/tmp/zeyao-keystore.jks")
+            storePassword = System.getenv("ZEYAO_STORE_PASS") ?: "zeyao-release-2026"
             keyAlias = System.getenv("ZEYAO_KEY_ALIAS") ?: "zeyao"
-            keyPassword = System.getenv("ZEYAO_KEY_PASS") ?: ""
+            keyPassword = System.getenv("ZEYAO_KEY_PASS") ?: "zeyao-release-2026"
         }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -59,7 +60,7 @@ android {
 }
 
 dependencies {
-    implementation(platform("androidx.compose:compose-bom:2024.10.01"))
+    implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
@@ -71,11 +72,11 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-service:2.8.7")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-    implementation("androidx.security:security-crypto:1.0.0")
-    implementation("androidx.navigation:navigation-compose:2.8.3")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("org.jsoup:jsoup:1.18.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jsoup:jsoup:1.18.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

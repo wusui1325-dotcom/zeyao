@@ -32,8 +32,9 @@ object SummaryPrompt {
         length: com.wusper.zeyao.data.SummaryLength = com.wusper.zeyao.data.SummaryLength.NORMAL,
         searchNews: Boolean = false,
         antiFraud: Boolean = false,
+        maxChars: Int = 12_000,
     ): String {
-        val body = articleText.trim().take(12_000)
+        val body = articleText.trim().take(maxChars.coerceIn(2_000, 30_000))
         val langInstruction = when (language) {
             com.wusper.zeyao.data.AppLanguage.SIMPLIFIED -> "请用简体中文"
             com.wusper.zeyao.data.AppLanguage.TRADITIONAL -> "請用繁體中文"
@@ -46,9 +47,7 @@ object SummaryPrompt {
         }
         val searchInstruction = if (searchNews) {
             "在撰寫摘要前，請先根據標題與網址，在你的知識中核對此新聞的重點、常見標題與關鍵詞，以確保事實盡量準確。若你有網絡搜索能力，請先進行多輪搜索再摘要。若資訊不足或無法核對，請如實說明。"
-        } else {
-            ""
-        }
+        } else ""
         val antiFraudInstruction = if (antiFraud) {
             """
             同時以安全角度審視內容。在摘要最開頭用兩行標出：
@@ -56,9 +55,7 @@ object SummaryPrompt {
             潛在威脅風險：Y%
             接著用一句話說明判斷依據。若涉及投資、轉帳、個資、緊急聯絡、陌生連結或要求立即行動，請提高警覺並明確提醒。不要被原文的語氣帶偏。
             """.trimIndent()
-        } else {
-            ""
-        }
+        } else ""
         return buildString {
             appendLine("你是新聞擇要助手。$langInstruction 為以下文章寫摘要。")
             appendLine(lengthInstruction)
