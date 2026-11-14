@@ -22,9 +22,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +58,15 @@ fun MainScreen(
     onOpenOther: () -> Unit,
     onOpenRecord: (SummaryRecord) -> Unit,
 ) {
+    var query by remember { mutableStateOf("") }
+    val filtered = remember(records, query) {
+        if (query.isBlank()) records
+        else records.filter {
+            it.title.contains(query, ignoreCase = true) ||
+            it.url.contains(query, ignoreCase = true) ||
+            it.summary.contains(query, ignoreCase = true)
+        }
+    }
     val colors = MaterialTheme.colorScheme
     Column(
         Modifier
@@ -97,9 +108,21 @@ fun MainScreen(
             Spacer(Modifier.height(28.dp))
             Text(stringResource(R.string.recent_records), style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
+            TextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = { Text("搜尋紀錄") },
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = colors.surfaceVariant.copy(alpha = 0.4f),
+                    unfocusedContainerColor = colors.surfaceVariant.copy(alpha = 0.3f),
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
         }
-        if (records.isEmpty()) {
-            EmptyHint("還沒有擇要紀錄。開啟攔截後，打開新聞頁就會出現在這裡。")
+        if (filtered.isEmpty()) {
+            EmptyHint(if (query.isBlank()) "還沒有擇要紀錄。開啟攔截後，打開新聞頁就會出現在這裡。" else "沒有符合的紀錄")
         } else {
             LazyColumn(
                 Modifier
@@ -107,7 +130,7 @@ fun MainScreen(
                     .padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(records, key = { it.id }) { record ->
+                items(filtered, key = { it.id }) { record ->
                     RecordRow(record, onClick = { onOpenRecord(record) })
                 }
                 item { Spacer(Modifier.height(24.dp)) }

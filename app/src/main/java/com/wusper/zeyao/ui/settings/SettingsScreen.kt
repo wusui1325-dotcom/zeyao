@@ -425,6 +425,13 @@ fun SettingsScreen(
                     }
                     .padding(vertical = 12.dp),
             )
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "版本 1.6.7",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            )
             Spacer(Modifier.height(16.dp))
         }
     }

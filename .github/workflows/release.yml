@@ -41,14 +41,15 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.6.2
-          name: Zeyao 1.6.2
+          tag_name: v1.6.7
+          name: Zeyao 1.6.7
           body: |
-            擇要 1.6.2
-            - 修正 R8 minify 缺少 errorprone/tink 類別問題
-            - 版本升至 1.6.2（刪除 1.6.1 tag）
-            - 啟用 release minify + shrink，補齊 ProGuard 規則
-            - 更新依賴與 SSE / 摘要 / 錯誤訊息 / 快取優化
+            擇要 1.6.7
+            - 嚴格落實多項優化（快取真正接入、設定顯示版本、紀錄可搜尋）
+            - 摘要結果寫入 10 分鐘記憶體快取，避免重複請求
+            - 主畫面紀錄新增搜尋框
+            - 設定頁底部顯示版本號
+            - 版本升至 1.6.7
           files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false

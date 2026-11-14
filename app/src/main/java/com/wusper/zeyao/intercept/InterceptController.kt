@@ -9,6 +9,7 @@ import android.os.SystemClock
 import com.wusper.zeyao.InterceptActivity
 import com.wusper.zeyao.VerifyActivity
 import com.wusper.zeyao.ZeyaoApp
+import com.wusper.zeyao.ai.SummaryCache
 import com.wusper.zeyao.ai.AiClientFactory
 import com.wusper.zeyao.ai.AiInitException
 import com.wusper.zeyao.ai.GenerationParams
@@ -482,6 +483,13 @@ object InterceptController {
                 app.records.update(id, title = workingTitle, url = workingUrl)
             }
             val settings = app.settings.current()
+            // Check short-lived cache first
+            val cached = SummaryCache.get(workingUrl)
+            if (cached != null && lengthOverride == null && searchOverride == null) {
+                updateSession(id) { it.copy(summary = cached, streaming = false, error = null) }
+                app.records.update(id, summary = cached, title = workingTitle, status = RecordStatus.READY)
+                return@launch
+            }
             ScreenshotBuffer.enabled = settings.imageRecognitionEnabled
             val key = app.secrets.getApiKey(settings.providerId)
             if (key.isNullOrBlank()) {
@@ -583,6 +591,11 @@ object InterceptController {
                         map + (id to next)
                     }
                     snapshot?.let { app.records.update(id, summary = it.summary, title = it.title) }
+                }
+                // Cache successful result
+                val final = _sessions.value[id]
+                if (final != null && final.summary.isNotBlank() && final.error == null) {
+                    SummaryCache.put(workingUrl, final.summary)
                 }
                 val final = _sessions.value[id]
                 if (final == null) return@launch
