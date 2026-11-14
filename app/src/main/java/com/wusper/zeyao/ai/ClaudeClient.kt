@@ -68,12 +68,7 @@ class ClaudeClient : AiClient {
         articleText: String,
         params: GenerationParams,
     ): Flow<String> = callbackFlow {
-        val models = listOf(
-            "claude-sonnet-4-0",
-            "claude-sonnet-4-20250514",
-            "claude-3-7-sonnet-latest",
-            "claude-3-5-sonnet-latest",
-        )
+        val models = AiProvider.fallbackList(AiProvider.CLAUDE, params.fallbackModels)
         val worker = Thread({
             var lastError: Exception? = null
             for ((index, model) in models.withIndex()) {
