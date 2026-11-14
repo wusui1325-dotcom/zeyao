@@ -70,19 +70,21 @@ class OpenAiClient : AiClient {
                         .header("Content-Type", "application/json")
                         .post(body.toRequestBody(JSON))
                         .build()
+                    var shouldContinue = false
                     HttpClients.stream.newCall(request).execute().use { response ->
                         if (response.code == 404 || response.code == 400) {
                             lastError = AiInitException(friendlyHttpError(response.code, "OpenAI"))
-                            continue
-                        }
-                        if (!response.isSuccessful) {
+                            shouldContinue = true
+                        } else if (!response.isSuccessful) {
                             throw AiInitException(friendlyHttpError(response.code, "OpenAI"))
-                        }
-                        SseReader.readEvents(response) { data ->
-                            val text = extractOpenAiDelta(data)
-                            if (text.isNotEmpty()) trySend(text)
+                        } else {
+                            SseReader.readEvents(response) { data ->
+                                val text = extractOpenAiDelta(data)
+                                if (text.isNotEmpty()) trySend(text)
+                            }
                         }
                     }
+                    if (shouldContinue) continue
                     lastError = null
                     break
                 } catch (e: Exception) {

@@ -490,7 +490,7 @@ object InterceptController {
             val cached = SummaryCache.get(workingUrl)
             if (cached != null && lengthOverride == null && searchOverride == null) {
                 updateSession(id) { it.copy(summary = cached, streaming = false, error = null) }
-                app.records.update(id, summary = cached, title = workingTitle, status = RecordStatus.READY)
+                app.records.update(id, summary = cached, title = workingTitle, status = RecordStatus.COMPLETED)
                 return@launch
             }
             ScreenshotBuffer.enabled = settings.imageRecognitionEnabled
@@ -538,7 +538,7 @@ object InterceptController {
                         title = workingTitle,
                         url = workingUrl,
                         articleText = article?.text.orEmpty(),
-                        fallback = settings.backupSearchEnabled,
+                        fallback = settings.searchNewsEnabled,
                     )
                     factContext = com.wusper.zeyao.ai.FactChecker.format(factSources)
                     if (factSources.isNotEmpty()) {
@@ -549,7 +549,7 @@ object InterceptController {
                     val hits = com.wusper.zeyao.ai.DeepSeekSearch.searchWithFallback(
                         apiKey = key,
                         query = workingTitle.ifBlank { workingUrl },
-                        fallback = settings.backupSearchEnabled,
+                        fallback = settings.searchNewsEnabled,
                         count = 5,
                     )
                     com.wusper.zeyao.ai.DeepSeekSearch.formatForPrompt(hits)
@@ -599,11 +599,11 @@ object InterceptController {
                     snapshot?.let { app.records.update(id, summary = it.summary, title = it.title) }
                 }
                 // Cache successful result
-                val final = _sessions.value[id]
-                if (final != null && final.summary.isNotBlank() && final.error == null) {
-                    SummaryCache.put(workingUrl, final.summary)
+                val finalSession = _sessions.value[id]
+                if (finalSession != null && finalSession.summary.isNotBlank() && finalSession.error == null) {
+                    SummaryCache.put(workingUrl, finalSession.summary)
                 }
-                val final = _sessions.value[id]
+                val final = finalSession
                 if (final == null) return@launch
                 val empty = final.summary.isBlank()
                 if (empty) {
