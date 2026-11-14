@@ -26,7 +26,9 @@ internal object SseReader {
                 line.startsWith("data:") -> {
                     dataLines.add(line.removePrefix("data:").trimStart())
                 }
-                // ignore event:, id:, retry:
+                line.startsWith("id:") || line.startsWith("retry:") || line.startsWith("event:") -> {
+                    // explicitly ignore control fields
+                }
             }
         }
         if (dataLines.isNotEmpty()) {

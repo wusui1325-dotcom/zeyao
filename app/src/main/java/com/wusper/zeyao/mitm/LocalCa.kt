@@ -90,7 +90,7 @@ object LocalCa {
         val c = cert ?: return -1
         val now = System.currentTimeMillis()
         val exp = c.notAfter.time
-        return ((exp - now) / 86_400_000L).toInt()
+        return ((exp - now) / 86_400_000L).toInt().coerceAtLeast(0)
     }
 
     fun pem(): String = toPem("CERTIFICATE", certificate().encoded)
