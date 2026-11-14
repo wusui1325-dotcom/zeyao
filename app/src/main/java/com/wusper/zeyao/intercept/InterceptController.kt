@@ -580,6 +580,8 @@ object InterceptController {
                         summaryLength = lengthOverride ?: settings.summaryLength,
                         searchNews = useSearch,
                         antiFraud = settings.antiFraudEnabled,
+                        temperature = settings.temperature,
+                        maxTokens = settings.maxTokens,
                     ),
                 ).collect { delta ->
                     if (delta.isEmpty()) return@collect

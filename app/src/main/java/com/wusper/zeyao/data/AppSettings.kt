@@ -53,8 +53,12 @@ data class AppSettings(
     val antiFraudEnabled: Boolean = false,
     /** Extract facts and search each one before summarizing. */
     val authenticityCheckEnabled: Boolean = false,
-    /** Use DuckDuckGo when official DeepSeek Search returns nothing. */
-    val backupSearchEnabled: Boolean = false,
+    /** Preferred temperature for summary generation. */
+    val temperature: Double = 1.0,
+    /** Preferred max tokens for summary. */
+    val maxTokens: Int = 1200,
+    /** Only decrypt known news hosts when HTTPS decrypt is on. */
+    val httpsDecryptNewsOnly: Boolean = true,
 )
 
 enum class SummaryLength { SHORT, NORMAL, LONG }

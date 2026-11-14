@@ -401,7 +401,19 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-            SectionLabel(stringResource(R.string.section_generate))
+            SectionLabel("生成參數")
+            Text(
+                "溫度：${String.format("%.1f", settings.temperature)}　最大字數：${settings.maxTokens}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
+            SettingSwitch(
+                title = "僅解密已知新聞域名",
+                subtitle = "開啟時 HTTPS 解密只對新聞網站生效，降低風險。",
+                checked = settings.httpsDecryptNewsOnly,
+                onChecked = { enabled -> onUpdate { it.copy(httpsDecryptNewsOnly = enabled) } },
+            )
             SettingSwitch(
                 title = stringResource(R.string.continue_on_exit),
                 subtitle = stringResource(R.string.continue_on_exit_hint),
@@ -427,7 +439,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(24.dp))
             Text(
-                "版本 1.6.7",
+                "版本 1.6.9",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),

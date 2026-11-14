@@ -78,10 +78,16 @@ class TlsMitm(
 
     private fun pump() {
         if (failed || closed) return
+        val start = System.nanoTime()
         var progress = true
         var steps = 0
-        while (progress && steps < 80 && !failed && !closed) {
+        while (progress && steps < 120 && !failed && !closed) {
             steps++
+            // Hard timeout to avoid stuck pump (item 2)
+            if (System.nanoTime() - start > 2_000_000_000L) { // 2s
+                fail()
+                return
+            }
             progress = false
             progress = runTasks(serverEngine) || progress
             progress = runTasks(clientEngine) || progress
