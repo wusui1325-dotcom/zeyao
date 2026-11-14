@@ -41,15 +41,14 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.7.0
-          name: Zeyao 1.7.0
+          tag_name: v1.7.1
+          name: Zeyao 1.7.1
           body: |
-            擇要 1.7.0
-            - 嚴格落實多項優化（CA 過期提醒、攔截計數、文章擷取 fallback、TlsMitm 超時等）
-            - LocalCa 新增 daysUntilExpiry 檢查，設定頁顯示即將過期警告
-            - 匿名攔截次數統計
-            - ArticleFetcher 空內容 fallback
-            - 版本升至 1.7.0
+            擇要 1.7.1
+            - 強化 URL canonical / slug 匹配（項目 8）
+            - 新增高對比主題選項（項目 33）
+            - 保留前版所有優化（快取、搜尋、CA 過期、攔截計數、TlsMitm 超時等）
+            - 版本 1.7.1
           files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false

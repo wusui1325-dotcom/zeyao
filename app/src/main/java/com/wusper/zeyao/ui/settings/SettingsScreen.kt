@@ -291,6 +291,7 @@ fun SettingsScreen(
                         ThemeStyle.FOLLOW_SYSTEM -> stringResource(R.string.theme_system)
                         ThemeStyle.DARK -> stringResource(R.string.theme_dark)
                         ThemeStyle.LIGHT -> stringResource(R.string.theme_light)
+                        ThemeStyle.HIGH_CONTRAST -> "高對比"
                     },
                     selected = settings.themeStyle == style,
                     onClick = { onUpdate { it.copy(themeStyle = style) } },
@@ -453,7 +454,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(24.dp))
             Text(
-                "版本 1.7.0",
+                "版本 1.7.1",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),

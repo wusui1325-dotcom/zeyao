@@ -271,10 +271,16 @@ object NewsHosts {
         val ca = canonicalUrl(a)
         val cb = canonicalUrl(b)
         if (ca == cb) return true
-        // Treat a redirect that only appends a slug after a shared prefix as the same article.
+        // Stronger slug / trailing-segment match (item 8)
         val shorter = if (ca.length <= cb.length) ca else cb
         val longer = if (ca.length <= cb.length) cb else ca
-        return longer.startsWith(shorter) && (longer.length == shorter.length || longer[shorter.length] == '/' || longer[shorter.length] == '?')
+        if (longer.startsWith(shorter) && (longer.length == shorter.length || longer[shorter.length] == '/' || longer[shorter.length] == '?')) {
+            return true
+        }
+        // Also treat differing trailing numeric or date slugs as same article when host+path prefix match
+        val hostPathA = ca.substringBefore('?').substringBeforeLast('/')
+        val hostPathB = cb.substringBefore('?').substringBeforeLast('/')
+        return hostPathA.length > 12 && hostPathA == hostPathB
     }
 
     fun hostOf(url: String): String {

@@ -75,7 +75,7 @@ enum class AppLanguage(val tag: String, val nativeName: String) {
     }
 }
 
-enum class ThemeStyle { FOLLOW_SYSTEM, DARK, LIGHT }
+enum class ThemeStyle { FOLLOW_SYSTEM, DARK, LIGHT, HIGH_CONTRAST }
 
 enum class TypographyStyle { EDITORIAL, COMPACT }
 
