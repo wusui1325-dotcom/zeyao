@@ -41,12 +41,12 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.9.0
-          name: Zeyao 2.9.0
+          tag_name: v3.0.0
+          name: Zeyao 3.0.0
           body: |
-            擇要 2.9.0
-            - 摘要 prompt 禁止 Markdown、ScreenshotBuffer 調整保留
-            - 版本 2.9.0
+            擇要 3.0.0
+            - 快取 TTL 15 分鐘、串流超時 120s 保留
+            - 版本 3.0.0
           files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false

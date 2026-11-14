@@ -26,7 +26,7 @@ object SummaryCache {
         if (text.isBlank()) return
         cache[url.trim().lowercase()] = Entry(text, SystemClock.elapsedRealtime())
         // Keep size bounded
-        if (cache.size > 80) {
+        if (cache.size > 120) {
             val oldest = cache.entries.minByOrNull { it.value.at }?.key
             if (oldest != null) cache.remove(oldest)
         }

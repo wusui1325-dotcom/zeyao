@@ -74,7 +74,7 @@ class ZeyaoAccessibilityService : AccessibilityService() {
             val now = SystemClock.elapsedRealtime()
             // Rate limit + dedup (item 6 related)
             if (lastUrlByPackage[pkg] == url) return
-            if ((lastEmitAt[pkg] ?: 0L) + 400 > now) return
+            if ((lastEmitAt[pkg] ?: 0L) + 500 > now) return
             lastUrlByPackage[pkg] = url
             lastEmitAt[pkg] = now
             InterceptController.onUrlDetected(url, title = "", packageName = pkg)
