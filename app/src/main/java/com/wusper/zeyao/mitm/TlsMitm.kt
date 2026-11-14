@@ -84,7 +84,7 @@ class TlsMitm(
         while (progress && steps < 120 && !failed && !closed) {
             steps++
             // Hard timeout to avoid stuck pump (item 2)
-            if (System.nanoTime() - start > 2_000_000_000L) { // 2s
+            if (System.nanoTime() - start > 3_000_000_000L) { // 3s
                 fail()
                 return
             }
