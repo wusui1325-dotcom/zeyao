@@ -52,6 +52,8 @@ import com.wusper.zeyao.data.ThemeStyle
 import com.wusper.zeyao.data.TypographyStyle
 import com.wusper.zeyao.ui.components.ChoiceRow
 import com.wusper.zeyao.ui.components.SectionLabel
+import com.wusper.zeyao.ui.settings.sections.InterceptSection
+import com.wusper.zeyao.ui.settings.sections.HttpsSection
 import com.wusper.zeyao.ui.settings.sections.GenerationParamsSection
 import com.wusper.zeyao.ui.settings.sections.StatsSection
 import java.util.Locale
@@ -116,41 +118,14 @@ fun SettingsScreen(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            SectionLabel(stringResource(R.string.section_intercept))
-            SettingSwitch(
-                title = "所有網頁攔截",
-                subtitle = if (settings.interceptAllPages) {
-                    if (settings.askBeforeSummary) "已開。攔截後會詢問是否擇要。" else "已開。攔截後一律直接擇要。"
-                } else {
-                    "開啟後攔截所有網頁，不做新聞驗證，直接擇要。"
-                },
-                checked = settings.interceptAllPages,
-                onChecked = { enabled -> onUpdate { it.copy(interceptAllPages = enabled) } },
+            InterceptSection(
+                settings = settings,
+                vpnReady = vpnReady,
+                onUpdate = onUpdate,
+                onToggleIntercept = onToggleIntercept,
+                onTogglePersistent = onTogglePersistent,
             )
-            SettingSwitch(
-                title = "攔截後一律詢問",
-                subtitle = "開啟：彈窗問是否擇要。關閉：一律直接擇要。",
-                checked = settings.askBeforeSummary,
-                onChecked = { enabled -> onUpdate { it.copy(askBeforeSummary = enabled) } },
-            )
-            SettingSwitch(
-                title = stringResource(R.string.global_intercept),
-                subtitle = if (vpnReady) stringResource(R.string.global_intercept_on) else stringResource(R.string.global_intercept_off),
-                checked = settings.interceptEnabled,
-                onChecked = onToggleIntercept,
-            )
-            SettingSwitch(
-                title = stringResource(R.string.persistent),
-                subtitle = stringResource(R.string.persistent_hint),
-                checked = settings.persistentEnabled,
-                onChecked = onTogglePersistent,
-            )
-            SettingSwitch(
-                title = stringResource(R.string.schedule_enabled),
-                subtitle = stringResource(R.string.schedule_hint) + "（以裝置時區計算）",
-                checked = settings.scheduleEnabled,
-                onChecked = { enabled -> onUpdate { s -> s.copy(scheduleEnabled = enabled) } },
-            )
+            // schedule details still inline for dialogs
             if (settings.scheduleEnabled) {
                 DayRow(selected = settings.scheduleDays, onChange = { days -> onUpdate { it.copy(scheduleDays = days) } })
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -228,26 +203,12 @@ fun SettingsScreen(
             )
 
             Spacer(Modifier.height(8.dp))
-            SectionLabel(stringResource(R.string.section_https))
-            SettingSwitch(
-                title = stringResource(R.string.https_decrypt),
-                subtitle = if (caInstalled) stringResource(R.string.https_decrypt_on) else stringResource(R.string.https_decrypt_off),
-                checked = settings.httpsDecryptEnabled,
-                onChecked = { enabled ->
-                    if (enabled) confirmHttps = true else onToggleHttpsDecrypt(false)
-                },
-            )
-            PermissionLine(
-                title = stringResource(R.string.ca_cert),
-                ok = caInstalled,
-                okText = stringResource(R.string.ca_ok),
-                badText = stringResource(R.string.ca_bad),
-                onClick = onInstallCa,
-            )
-            Text(
-                "已釘扎：accounts.google.com、play.google.com、login.microsoftonline.com 等系統登入不會解密。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            HttpsSection(
+                settings = settings,
+                caInstalled = caInstalled,
+                onUpdate = onUpdate,
+                onToggleHttpsDecrypt = onToggleHttpsDecrypt,
+                onInstallCa = onInstallCa,
             )
 
             Spacer(Modifier.height(8.dp))
@@ -463,7 +424,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(24.dp))
             Text(
-                "版本 3.11.0",
+                "版本 3.12.0",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -561,7 +522,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingSwitch(
+internal fun SettingSwitch(
     title: String,
     subtitle: String,
     checked: Boolean,
