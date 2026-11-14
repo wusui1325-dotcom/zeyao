@@ -34,7 +34,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
 import com.wusper.zeyao.R
 import com.wusper.zeyao.data.AppSettings
 import com.wusper.zeyao.data.RecordStatus
@@ -59,6 +60,7 @@ fun MainScreen(
     onOpenRecord: (SummaryRecord) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
+    val context = LocalContext.current
     val filtered = remember(records, query) {
         if (query.isBlank()) records
         else records.filter {
@@ -118,6 +120,24 @@ fun MainScreen(
                     unfocusedContainerColor = colors.surfaceVariant.copy(alpha = 0.3f),
                 ),
                 modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "匯出紀錄",
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.primary,
+                modifier = Modifier
+                    .clickable {
+                        val text = filtered.joinToString("\n\n") { r ->
+                            "${r.title}\n${r.url}\n${r.summary.take(200)}"
+                        }
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, text.ifBlank { "（無紀錄）" })
+                        }
+                        runCatching { context.startActivity(Intent.createChooser(send, "匯出紀錄")) }
+                    }
+                    .padding(vertical = 4.dp),
             )
             Spacer(Modifier.height(8.dp))
         }
