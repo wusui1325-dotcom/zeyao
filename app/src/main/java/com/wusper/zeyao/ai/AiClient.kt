@@ -63,7 +63,7 @@ object SummaryPrompt {
             if (antiFraudInstruction.isNotEmpty()) appendLine(antiFraudInstruction)
             appendLine("只保留關鍵事實（何人、何事、何時、何地、結果與影響）。")
             appendLine("不要評論、不要另起標題、不要輸出條列清單、不要重複原文。")
-            appendLine("若原文資訊不足，請如實寫出已知部分，不要臆測。")
+            appendLine("若原文資訊不足或擷取失敗，請如實說明已知部分，不要臆測。")
             appendLine()
             append("標題："); appendLine(title.ifBlank { "（無標題）" })
             append("網址："); appendLine(url)

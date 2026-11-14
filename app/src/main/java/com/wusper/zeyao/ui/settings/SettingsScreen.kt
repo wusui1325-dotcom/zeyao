@@ -145,7 +145,7 @@ fun SettingsScreen(
             )
             SettingSwitch(
                 title = stringResource(R.string.schedule_enabled),
-                subtitle = stringResource(R.string.schedule_hint),
+                subtitle = stringResource(R.string.schedule_hint) + "（以裝置時區計算）",
                 checked = settings.scheduleEnabled,
                 onChecked = { enabled -> onUpdate { s -> s.copy(scheduleEnabled = enabled) } },
             )
@@ -465,7 +465,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(24.dp))
             Text(
-                "版本 2.5.0",
+                "版本 2.6.0",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
