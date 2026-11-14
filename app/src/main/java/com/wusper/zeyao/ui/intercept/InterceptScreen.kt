@@ -224,7 +224,9 @@ private fun RowScope.PairButtons(
 private fun EnterButton(onClick: () -> Unit, modifier: Modifier) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(52.dp),
+        modifier = modifier
+            .height(52.dp)
+            .semantics { contentDescription = "進入原文" },
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -236,7 +238,12 @@ private fun EnterButton(onClick: () -> Unit, modifier: Modifier) {
 
 @Composable
 private fun BackButton(onClick: () -> Unit, modifier: Modifier) {
-    OutlinedButton(onClick = onClick, modifier = modifier.height(52.dp)) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier
+            .height(52.dp)
+            .semantics { contentDescription = "返回上一頁" },
+    ) {
         Text(stringResource(R.string.back), style = MaterialTheme.typography.titleMedium)
     }
 }
