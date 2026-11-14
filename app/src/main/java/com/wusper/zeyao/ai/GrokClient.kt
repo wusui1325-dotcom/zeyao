@@ -43,7 +43,7 @@ class GrokClient : AiClient {
         articleText: String,
         params: GenerationParams,
     ): Flow<String> = callbackFlow {
-        val models = listOf("grok-3", "grok-2", "grok-2-latest")
+        val models = AiProvider.fallbackList(AiProvider.GROK, params.fallbackModels)
         val worker = Thread({
             var lastError: Exception? = null
             for ((index, model) in models.withIndex()) {

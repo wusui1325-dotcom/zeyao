@@ -46,7 +46,7 @@ class GeminiClient : AiClient {
         articleText: String,
         params: GenerationParams,
     ): Flow<String> = callbackFlow {
-        val models = listOf("gemini-2.0-flash", "gemini-2.0-flash-001", "gemini-1.5-flash")
+        val models = AiProvider.fallbackList(AiProvider.GEMINI, params.fallbackModels)
         val worker = Thread({
             var lastError: Exception? = null
             for ((index, model) in models.withIndex()) {
