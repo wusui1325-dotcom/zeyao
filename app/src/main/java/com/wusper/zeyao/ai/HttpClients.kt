@@ -12,7 +12,7 @@ internal object HttpClients {
 
     val stream: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(12, TimeUnit.SECONDS)
-        .readTimeout(90, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
         .writeTimeout(20, TimeUnit.SECONDS)
         .build()
 

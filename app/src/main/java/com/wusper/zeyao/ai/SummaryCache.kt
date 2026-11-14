@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Short-lived in-memory cache for summaries to avoid duplicate API calls.
  */
 object SummaryCache {
-    private const val TTL_MS = 10 * 60 * 1000L // 10 minutes
+    private const val TTL_MS = 15 * 60 * 1000L // 15 minutes
     private val cache = ConcurrentHashMap<String, Entry>()
 
     data class Entry(val text: String, val at: Long)
