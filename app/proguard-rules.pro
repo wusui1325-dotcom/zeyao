@@ -4,6 +4,9 @@
 -dontwarn org.bouncycastle.**
 -dontwarn okhttp3.**
 -dontwarn okio.**
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn com.google.crypto.tink.**
 -keepattributes Signature
 -keepattributes *Annotation*
 -keep class androidx.security.crypto.** { *; }
+-keep class com.google.crypto.tink.** { *; }
