@@ -41,12 +41,12 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.8.0
-          name: Zeyao 3.8.0
+          tag_name: ${{ github.ref_name }}
+          name: Zeyao ${{ github.ref_name }}
           body: |
-            擇要 3.8.0
-            - 紀錄可匯出保留
-            - 版本 3.8.0
+            擇要 ${{ github.ref_name }}
+            - 正式版 Release APK
+            - 金鑰與先前一致
           files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false
