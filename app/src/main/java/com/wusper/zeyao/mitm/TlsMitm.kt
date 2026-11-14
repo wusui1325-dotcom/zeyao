@@ -81,10 +81,10 @@ class TlsMitm(
         val start = System.nanoTime()
         var progress = true
         var steps = 0
-        while (progress && steps < 120 && !failed && !closed) {
+        while (progress && steps < 80 && !failed && !closed) { // stricter step limit
             steps++
-            // Hard timeout to avoid stuck pump (item 2)
-            if (System.nanoTime() - start > 3_000_000_000L) { // 3s
+            // Stricter timeout to avoid stuck pump (item 2)
+            if (System.nanoTime() - start > 1_500_000_000L) { // 1.5s hard limit
                 fail()
                 return
             }

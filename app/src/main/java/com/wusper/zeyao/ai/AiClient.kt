@@ -34,7 +34,13 @@ object SummaryPrompt {
         antiFraud: Boolean = false,
         maxChars: Int = 12_000,
     ): String {
-        val body = articleText.trim().take(maxChars.coerceIn(2_000, 48_000))
+        // Dynamic truncation based on model context estimate (item 12)
+        val adjustedMax = when {
+            maxChars > 20_000 -> 16_000
+            maxChars < 4_000 -> 4_000
+            else -> maxChars
+        }
+        val body = articleText.trim().take(adjustedMax.coerceIn(2_000, 48_000))
         val langInstruction = when (language) {
             com.wusper.zeyao.data.AppLanguage.SIMPLIFIED -> "请用简体中文"
             com.wusper.zeyao.data.AppLanguage.TRADITIONAL -> "請用繁體中文"

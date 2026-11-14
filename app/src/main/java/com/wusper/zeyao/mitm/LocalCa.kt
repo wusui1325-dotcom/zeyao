@@ -93,6 +93,16 @@ object LocalCa {
         return ((exp - now) / 86_400_000L).toInt().coerceAtLeast(0)
     }
 
+    /** Integrity check for CA files (item 5). */
+    fun checkIntegrity(context: Context): Boolean {
+        return runCatching {
+            ensure(context)
+            val c = certificate()
+            c.checkValidity()
+            daysUntilExpiry() > 7
+        }.getOrDefault(false)
+    }
+
     fun pem(): String = toPem("CERTIFICATE", certificate().encoded)
 
     fun der(): ByteArray = certificate().encoded

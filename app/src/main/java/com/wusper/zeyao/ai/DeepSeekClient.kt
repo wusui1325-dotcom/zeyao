@@ -143,9 +143,9 @@ internal fun extractOpenAiDelta(data: String): String {
 }
 
 internal fun friendlyHttpError(code: Int, vendor: String): String = when (code) {
-    401, 403 -> "金鑰無效或沒有權限。請檢查 $vendor API Key 格式、是否複製完整，以及帳戶額度。"
-    404 -> "$vendor 找不到指定的模型或接口。已嘗試備用模型，若仍失敗請在設定中指定可用模型。"
-    429 -> "$vendor 請求過於頻繁或超出配額。請稍後再試，或檢查用量與付費狀態。"
-    in 500..599 -> "$vendor 服務暫時無法使用（HTTP $code）。請稍後重試，或切換其他提供者。"
-    else -> "$vendor 請求失敗（HTTP $code）。請檢查網路連線、金鑰或稍後再試。"
+    401, 403 -> "金鑰無效或沒有權限。請檢查 $vendor API Key 格式是否正確、是否完整複製，以及帳戶是否有足夠額度。（建議：重新複製金鑰並確認無多餘空格）"
+    404 -> "$vendor 找不到指定的模型或接口。已自動嘗試備用模型；若仍失敗，請在設定中手動指定可用模型名稱。"
+    429 -> "$vendor 請求過於頻繁或超出配額。請稍後再試，或到帳戶頁面檢查用量與付費狀態。"
+    in 500..599 -> "$vendor 服務暫時無法使用（HTTP $code）。請稍後重試，或切換其他 AI 提供者。"
+    else -> "$vendor 請求失敗（HTTP $code）。請檢查網路連線、金鑰有效性，或稍後再試。"
 }

@@ -110,6 +110,10 @@ object InterceptController {
         private set
 
     @Volatile
+    var httpsDecryptNewsOnlyCached: Boolean = true
+        private set
+
+    @Volatile
     var caInstalledCached: Boolean = false
         private set
 
@@ -121,6 +125,7 @@ object InterceptController {
             app.settings.settings.collect { settings ->
                 interceptArmedCached = app.settings.isInterceptArmed(settings)
                 httpsDecryptCached = settings.httpsDecryptEnabled
+                httpsDecryptNewsOnlyCached = settings.httpsDecryptNewsOnly
                 siteCooldownMs = settings.siteCooldownSeconds.coerceIn(10, 600).toLong() * 1000L
                 refreshCaInstalled()
             }
@@ -135,7 +140,11 @@ object InterceptController {
         }.getOrDefault(false)
     }
 
-    fun isHttpsDecryptActive(): Boolean = httpsDecryptCached && caInstalledCached
+    fun isHttpsDecryptActive(host: String = ""): Boolean {
+        if (!httpsDecryptCached || !caInstalledCached) return false
+        if (!httpsDecryptNewsOnlyCached) return true
+        return host.isBlank() || NewsHosts.isNewsHost(host)
+    }
 
     fun sessionFlow(id: String): StateFlow<InterceptSession?> {
         val flow = MutableStateFlow(_sessions.value[id])

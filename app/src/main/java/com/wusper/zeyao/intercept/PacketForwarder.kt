@@ -26,6 +26,8 @@ import kotlin.math.min
 
 /**
  * Userspace IPv4 TCP/UDP forwarder for the local VpnService.
+ * 使用 NIO Selector + ByteBuffer 減少緩衝拷貝，提高封包處理效率（項目 1）。
+ * HTTPS 預設不解密；僅在使用者開啟設定且安裝擇要 CA 後，才對符合白名單的新聞域名進行 MITM。
  * HTTPS is not decrypted unless the user turns on the setting and installs
  * the 擇要 CA. With decryption on, the exact request URL and HTML can be read.
  */
@@ -620,7 +622,7 @@ class PacketForwarder(
 
         private fun shouldHold(host: String): Boolean {
             if (!InterceptController.interceptArmedCached) return false
-            if (!NewsHosts.isNewsHost(host)) return false
+            if (!InterceptController.isHttpsDecryptActive(host)) return false
             if (InterceptController.isHostPassthrough(host)) return false
             return true
         }
