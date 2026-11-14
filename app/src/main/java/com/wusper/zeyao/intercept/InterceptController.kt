@@ -15,6 +15,7 @@ import com.wusper.zeyao.ai.AiInitException
 import com.wusper.zeyao.ai.GenerationParams
 import com.wusper.zeyao.ai.NewsClassifier
 import com.wusper.zeyao.data.BrowserHandoff
+import com.wusper.zeyao.data.NewsHosts
 import com.wusper.zeyao.intercept.helpers.UrlCooldownManager
 import com.wusper.zeyao.data.RecordStatus
 import com.wusper.zeyao.extract.ArticleFetcher

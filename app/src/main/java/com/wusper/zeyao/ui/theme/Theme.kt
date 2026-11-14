@@ -45,6 +45,7 @@ fun ZeyaoTheme(
         ThemeStyle.FOLLOW_SYSTEM -> systemDark
         ThemeStyle.DARK -> true
         ThemeStyle.LIGHT -> false
+        ThemeStyle.HIGH_CONTRAST -> true
     }
     val scheme = if (dark) {
         darkColorScheme(

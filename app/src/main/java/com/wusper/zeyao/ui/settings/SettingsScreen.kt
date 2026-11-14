@@ -52,6 +52,7 @@ import com.wusper.zeyao.data.ThemeStyle
 import com.wusper.zeyao.data.TypographyStyle
 import com.wusper.zeyao.ui.components.ChoiceRow
 import com.wusper.zeyao.ui.components.SectionLabel
+import com.wusper.zeyao.ui.components.TopAction
 import com.wusper.zeyao.ui.settings.sections.InterceptSection
 import com.wusper.zeyao.ui.settings.sections.HttpsSection
 import com.wusper.zeyao.ui.settings.sections.GenerationParamsSection
@@ -333,8 +334,8 @@ fun SettingsScreen(
             SettingSwitch(
                 title = "備用搜索",
                 subtitle = "官方 DeepSeek Search 無結果或失敗時，改用 DuckDuckGo。",
-                checked = settings.backupSearchEnabled,
-                onChecked = { enabled -> onUpdate { it.copy(backupSearchEnabled = enabled) } },
+                checked = settings.searchNewsEnabled,
+                onChecked = { enabled -> onUpdate { it.copy(searchNewsEnabled = enabled) } },
             )
             SettingSwitch(
                 title = stringResource(R.string.pref_search),
