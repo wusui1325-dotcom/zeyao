@@ -65,6 +65,7 @@ data class GenerationParams(
     val summaryLength: com.wusper.zeyao.data.SummaryLength = com.wusper.zeyao.data.SummaryLength.NORMAL,
     val searchNews: Boolean = false,
     val antiFraud: Boolean = false,
+    val fallbackModels: String = "",
 ) {
     companion object {
         val DEFAULT = GenerationParams()

@@ -588,6 +588,7 @@ object InterceptController {
                         antiFraud = settings.antiFraudEnabled,
                         temperature = settings.temperature,
                         maxTokens = settings.maxTokens,
+                        fallbackModels = settings.fallbackModels,
                     ),
                 ).collect { delta ->
                     if (delta.isEmpty()) return@collect
