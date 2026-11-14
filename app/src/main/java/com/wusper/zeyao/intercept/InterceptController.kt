@@ -440,6 +440,12 @@ object InterceptController {
         lengthOverride: com.wusper.zeyao.data.SummaryLength? = null,
         searchOverride: Boolean? = null,
     ) {
+        // Simple anonymous counter (item 49)
+        scope.launch {
+            runCatching {
+                app.settings.update { it.copy(interceptCount = it.interceptCount + 1) }
+            }
+        }
         jobs[id]?.cancel()
         jobs[id] = scope.launch {
             // If we only have a bare host, wait briefly for accessibility to supply the path.

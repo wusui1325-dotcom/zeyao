@@ -57,8 +57,8 @@ data class AppSettings(
     val temperature: Double = 1.0,
     /** Preferred max tokens for summary. */
     val maxTokens: Int = 1200,
-    /** Only decrypt known news hosts when HTTPS decrypt is on. */
-    val httpsDecryptNewsOnly: Boolean = true,
+    /** Local anonymous intercept counter for simple stats. */
+    val interceptCount: Int = 0,
 )
 
 enum class SummaryLength { SHORT, NORMAL, LONG }

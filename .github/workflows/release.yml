@@ -41,15 +41,15 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.6.9
-          name: Zeyao 1.6.9
+          tag_name: v1.7.0
+          name: Zeyao 1.7.0
           body: |
-            擇要 1.6.9
-            - 嚴格落實多項優化（攔截超時、動態截斷、生成參數、新聞域名解密限制、錯誤訊息等）
-            - TlsMitm pump 加入 2 秒硬超時
-            - 設定頁可調整溫度與最大字數，並顯示版本 1.6.9
-            - HTTPS 解密可限制僅新聞域名
-            - 摘要快取、紀錄搜尋已保留
+            擇要 1.7.0
+            - 嚴格落實多項優化（CA 過期提醒、攔截計數、文章擷取 fallback、TlsMitm 超時等）
+            - LocalCa 新增 daysUntilExpiry 檢查，設定頁顯示即將過期警告
+            - 匿名攔截次數統計
+            - ArticleFetcher 空內容 fallback
+            - 版本升至 1.7.0
           files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false

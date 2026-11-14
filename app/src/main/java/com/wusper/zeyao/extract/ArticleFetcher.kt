@@ -38,6 +38,10 @@ object ArticleFetcher {
                 throw IllegalStateException("無法讀取文章（HTTP ${response.code}）")
             }
             val html = response.body?.string().orEmpty()
+            if (html.isBlank()) {
+                // Fallback: return minimal article so caller can still try title-only summary
+                return@withContext FetchedArticle(url, "", "")
+            }
             parse(url, html)
         }
     }

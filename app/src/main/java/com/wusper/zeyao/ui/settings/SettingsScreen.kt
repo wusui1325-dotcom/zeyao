@@ -401,6 +401,20 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
+            SectionLabel("狀態")
+            Text(
+                "已攔截次數：${settings.interceptCount}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            val days = remember { com.wusper.zeyao.mitm.LocalCa.daysUntilExpiry() }
+            if (days in 0..30) {
+                Text(
+                    "擇要 CA 將在 $days 天後過期，建議重新安裝。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
             SectionLabel("生成參數")
             Text(
                 "溫度：${String.format("%.1f", settings.temperature)}　最大字數：${settings.maxTokens}",
@@ -439,7 +453,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(24.dp))
             Text(
-                "版本 1.6.9",
+                "版本 1.7.0",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
