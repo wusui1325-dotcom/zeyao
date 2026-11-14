@@ -52,7 +52,8 @@ import com.wusper.zeyao.data.ThemeStyle
 import com.wusper.zeyao.data.TypographyStyle
 import com.wusper.zeyao.ui.components.ChoiceRow
 import com.wusper.zeyao.ui.components.SectionLabel
-import com.wusper.zeyao.ui.components.TopAction
+import com.wusper.zeyao.ui.settings.sections.GenerationParamsSection
+import com.wusper.zeyao.ui.settings.sections.StatsSection
 import java.util.Locale
 
 data class LaunchableApp(
@@ -428,26 +429,8 @@ fun SettingsScreen(
                 )
             }
             Spacer(Modifier.height(8.dp))
-            SectionLabel("生成參數")
-            Text("溫度：${String.format("%.1f", settings.temperature)}", style = MaterialTheme.typography.bodyMedium)
-            Slider(
-                value = settings.temperature.toFloat(),
-                onValueChange = { onUpdate { it.copy(temperature = it.toDouble()) } },
-                valueRange = 0f..2f,
-                steps = 19,
-            )
-            Text("最大字數：${settings.maxTokens}", style = MaterialTheme.typography.bodyMedium)
-            Slider(
-                value = settings.maxTokens.toFloat(),
-                onValueChange = { onUpdate { it.copy(maxTokens = it.toInt()) } },
-                valueRange = 200f..2000f,
-                steps = 18,
-            )
-            Text(
-                "備用模型：${if (settings.fallbackModels.isBlank()) "內建" else settings.fallbackModels}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            GenerationParamsSection(settings, onUpdate)
+            StatsSection(settings)
             Spacer(Modifier.height(4.dp))
             SettingSwitch(
                 title = "僅解密已知新聞域名",
@@ -480,7 +463,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(24.dp))
             Text(
-                "版本 3.10.0",
+                "版本 3.11.0",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),

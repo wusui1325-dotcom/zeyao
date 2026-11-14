@@ -35,6 +35,13 @@ object ScreenshotBuffer {
         return file?.let { runCatching { BitmapFactory.decodeFile(it.absolutePath) }.getOrNull() }
     }
 
+    fun cleanupOld() {
+        val files = listFiles()
+        if (files.size > MAX) {
+            files.take(files.size - MAX).forEach { it.delete() }
+        }
+    }
+
     private fun dir(): File {
         val d = File(ZeyaoApp.instance.filesDir, DIR)
         if (!d.exists()) d.mkdirs()

@@ -15,7 +15,7 @@ import com.wusper.zeyao.ai.AiInitException
 import com.wusper.zeyao.ai.GenerationParams
 import com.wusper.zeyao.ai.NewsClassifier
 import com.wusper.zeyao.data.BrowserHandoff
-import com.wusper.zeyao.data.NewsHosts
+import com.wusper.zeyao.intercept.helpers.UrlCooldownManager
 import com.wusper.zeyao.data.RecordStatus
 import com.wusper.zeyao.extract.ArticleFetcher
 import com.wusper.zeyao.mitm.LocalCa
@@ -69,13 +69,7 @@ object InterceptController {
     val sessions: StateFlow<Map<String, InterceptSession>> = _sessions.asStateFlow()
 
     private val jobs = ConcurrentHashMap<String, Job>()
-    private val urlCooldownUntil = java.util.Collections.synchronizedMap(
-        object : LinkedHashMap<String, Long>(128, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>?): Boolean {
-                return size > 200
-            }
-        }
-    )
+    private val urlCooldown = UrlCooldownManager()
     private val hostPassthroughUntil = ConcurrentHashMap<String, Long>()
     private val lastSeenUrlAt = ConcurrentHashMap<String, Long>()
     private val holds = ConcurrentHashMap<String, MutableList<HeldConnection>>()
@@ -156,24 +150,11 @@ object InterceptController {
 
     fun peek(id: String): InterceptSession? = _sessions.value[id]
 
-    fun isUrlCooled(url: String): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (now < suppressUntilElapsed) return true
-        val key = NewsHosts.canonicalUrl(url)
-        val exact = urlCooldownUntil[key]
-        if (exact != null && now < exact) return true
-        // Also treat a just-allowed article as cooled if the new URL is a
-        // redirect/slug extension of a cooled one (or vice versa).
-        for ((cooled, until) in urlCooldownUntil) {
-            if (now < until && NewsHosts.sameArticle(cooled, key)) return true
-        }
-        return false
-    }
+    fun isUrlCooled(url: String): Boolean = urlCooldown.isCooled(url, suppressUntilElapsed)
 
     private fun markAllowed(url: String) {
-        val now = SystemClock.elapsedRealtime()
-        urlCooldownUntil[NewsHosts.canonicalUrl(url)] = now + siteCooldownMs
-        suppressUntilElapsed = now + ENTER_SUPPRESS_MS
+        urlCooldown.mark(url, siteCooldownMs)
+        suppressUntilElapsed = SystemClock.elapsedRealtime() + ENTER_SUPPRESS_MS
     }
 
     fun isHostPassthrough(host: String): Boolean {
@@ -207,7 +188,7 @@ object InterceptController {
         if (url.isBlank()) return
         val key = NewsHosts.canonicalUrl(url)
         NewsClassifier.remember(key, false)
-        urlCooldownUntil[key] = SystemClock.elapsedRealtime() + siteCooldownMs
+        urlCooldown.mark(url, siteCooldownMs)
         releaseDocumentHolds(url)
     }
 
