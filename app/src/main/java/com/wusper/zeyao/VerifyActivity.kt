@@ -1,39 +1,35 @@
 package com.wusper.zeyao
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.core.view.WindowCompat
-import com.wusper.zeyao.ai.AiProvider
-import com.wusper.zeyao.ai.NewsClassifier
 import com.wusper.zeyao.data.AppLocale
-import com.wusper.zeyao.data.AppSettings
-import com.wusper.zeyao.data.ModelRole
-import com.wusper.zeyao.data.ModelRoleSettings
 import com.wusper.zeyao.data.BrowserHandoff
 import com.wusper.zeyao.data.NewsHosts
+import com.wusper.zeyao.data.ThemeStyle
 import com.wusper.zeyao.intercept.InterceptController
-import com.wusper.zeyao.ui.theme.ZeyaoTheme
-import com.wusper.zeyao.ui.verify.VerifyScreen
+import com.wusper.zeyao.intercept.helpers.VerifyOutcome
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
 
-class VerifyActivity : ComponentActivity() {
+/**
+ * Lightweight「驗證中」float. Classification is started by
+ * [InterceptController] before this activity is created; this screen
+ * only shows the float and applies the already-running result.
+ * A static layout is used so the first frame does not wait on Compose
+ * or a settings disk read.
+ */
+class VerifyActivity : Activity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var job: Job? = null
     private var decided = false
@@ -46,35 +42,56 @@ class VerifyActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        bind()
-        startClassify(intent)
+        setContentView(R.layout.activity_verify)
+        applyCachedColors()
+        bindClassify(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         decided = false
-        startClassify(intent)
+        bindClassify(intent)
     }
 
-    private fun bind() {
-        setContent {
-            val app = ZeyaoApp.instance
-            val settings by app.settings.settings.collectAsState(initial = AppSettings())
-            ZeyaoTheme(
-                themeStyle = settings.themeStyle,
-                typographyStyle = settings.typographyStyle,
-                accent = Color(settings.accentColor),
-            ) {
-                BackHandler { openNormallyAndFinish() }
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    VerifyScreen()
-                }
-            }
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        openNormallyAndFinish()
+    }
+
+    private fun applyCachedColors() {
+        val settings = InterceptController.cachedSettings()
+        val dark = when (settings.themeStyle) {
+            ThemeStyle.DARK, ThemeStyle.HIGH_CONTRAST -> true
+            ThemeStyle.LIGHT -> false
+            ThemeStyle.FOLLOW_SYSTEM ->
+                (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_YES
         }
+        val highContrast = settings.themeStyle == ThemeStyle.HIGH_CONTRAST
+        val cardColor = when {
+            highContrast -> 0xFF000000.toInt()
+            dark -> 0xFF221C18.toInt()
+            else -> 0xFFFFFBF4.toInt()
+        }
+        val textColor = when {
+            highContrast -> 0xFFFFFFFF.toInt()
+            dark -> 0xFFEDE6DA.toInt()
+            else -> 0xFF1C1410.toInt()
+        }
+        val accent = if (highContrast) 0xFFFFFFFF.toInt() else (settings.accentColor.toInt())
+        val card = findViewById<LinearLayout>(R.id.verify_card)
+        val drawable = GradientDrawable().apply {
+            setColor(cardColor)
+            cornerRadius = 28f * resources.displayMetrics.density
+        }
+        card.background = drawable
+        findViewById<TextView>(R.id.verify_label).setTextColor(textColor)
+        findViewById<ProgressBar>(R.id.verify_progress).indeterminateTintList =
+            android.content.res.ColorStateList.valueOf(accent)
     }
 
-    private fun startClassify(intent: Intent) {
+    private fun bindClassify(intent: Intent) {
         job?.cancel()
         val url = NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty())
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
@@ -84,81 +101,69 @@ class VerifyActivity : ComponentActivity() {
             openNormallyAndFinish()
             return
         }
+        val settings = InterceptController.cachedSettings()
+        handoffPackage = settings.handoffBrowserPackage.ifBlank { null }
+        val pending = InterceptController.pendingClassify(url)
+            ?: InterceptController.ensureClassify(url, title, settings)
         job = scope.launch {
-            val app = ZeyaoApp.instance
-            val settings = runCatching { app.settings.current() }.getOrNull()
-            handoffPackage = settings?.handoffBrowserPackage
-            val knownNews = NewsHosts.shouldInterceptUrl(url, loose = true)
-            val outcome = runCatching {
-                val key = settings?.let {
-                    app.secrets.getApiKeyForRole(it.providerId, ModelRole.VERIFY.storageId)
-                }.orEmpty()
-                if (key.isBlank()) return@runCatching if (knownNews) true else null
-                val canonical = NewsHosts.canonicalUrl(url)
-                val cached = NewsClassifier.cached(canonical)
-                if (cached != null) return@runCatching cached
-                val provider = AiProvider.fromId(settings?.providerId ?: "deepseek")
-                val verify = settings?.let { ModelRoleSettings.resolve(ModelRole.VERIFY, it, provider) }
-                val result = withTimeout(CLASSIFY_TIMEOUT_MS) {
-                    NewsClassifier.classify(
-                        provider = provider,
-                        apiKey = key,
-                        title = title,
-                        url = url,
-                        models = verify?.models.orEmpty(),
-                        temperature = verify?.temperature ?: 0.0,
-                        maxTokens = verify?.maxTokens ?: 8,
-                        reasoningEffort = verify?.reasoningEffort ?: "low",
-                    )
+            val outcome = runCatching { pending.await() }
+                .getOrElse { e ->
+                    if (e is CancellationException) throw e
+                    VerifyOutcome(url, news = null)
                 }
-                NewsClassifier.remember(canonical, result)
-                result
-            }.getOrElse { e ->
-                if (e is CancellationException) throw e
-                if (knownNews) true else null
+            applyOutcome(outcome, title, pkg, handoffIfNotNews)
+        }
+    }
+
+    private fun applyOutcome(
+        outcome: VerifyOutcome,
+        title: String,
+        pkg: String?,
+        handoffIfNotNews: Boolean,
+    ) {
+        if (isFinishing || decided) return
+        val url = outcome.url.ifBlank { NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty()) }
+        when (outcome.news) {
+            true -> {
+                decided = true
+                InterceptController.startOrRefine(
+                    url,
+                    title = title,
+                    packageName = pkg,
+                    startFrom = this@VerifyActivity,
+                )
+                finish()
+                overridePendingTransition(0, 0)
             }
-            when (outcome) {
-                true -> {
+            false -> {
+                InterceptController.markNotNews(url)
+                if (handoffIfNotNews) {
+                    openNormallyAndFinish(mark = false, urlOverride = url)
+                } else {
                     decided = true
-                    InterceptController.startOrRefine(
-                        url,
-                        title = title,
-                        packageName = pkg,
-                        startFrom = this@VerifyActivity,
-                    )
                     finish()
                     overridePendingTransition(0, 0)
                 }
-                false -> {
-                    InterceptController.markNotNews(url)
-                    if (handoffIfNotNews) {
-                        openNormallyAndFinish(mark = false)
-                    } else {
-                        decided = true
-                        finish()
-                        overridePendingTransition(0, 0)
-                    }
-                }
-                else -> {
-                    // API error / missing key on an unknown site: let through, do not poison the cache.
-                    InterceptController.releaseDocumentHolds(url)
-                    if (handoffIfNotNews) {
-                        openNormallyAndFinish(mark = false)
-                    } else {
-                        decided = true
-                        finish()
-                        overridePendingTransition(0, 0)
-                    }
+            }
+            else -> {
+                InterceptController.releaseDocumentHolds(url)
+                if (handoffIfNotNews) {
+                    openNormallyAndFinish(mark = false, urlOverride = url)
+                } else {
+                    decided = true
+                    finish()
+                    overridePendingTransition(0, 0)
                 }
             }
         }
     }
 
-    private fun openNormallyAndFinish(mark: Boolean = false) {
+    private fun openNormallyAndFinish(mark: Boolean = false, urlOverride: String? = null) {
         if (decided) return
         decided = true
         job?.cancel()
-        val url = NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty())
+        val url = urlOverride ?: NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty())
+        InterceptController.cancelClassify(url)
         if (mark) InterceptController.markNotNews(url) else InterceptController.releaseDocumentHolds(url)
         if (url.isNotBlank()) {
             BrowserHandoff.open(this, url, handoffPackage)
@@ -171,7 +176,10 @@ class VerifyActivity : ComponentActivity() {
         job?.cancel()
         if (!decided && !isChangingConfigurations) {
             val url = NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty())
-            if (url.isNotBlank()) InterceptController.releaseDocumentHolds(url)
+            if (url.isNotBlank()) {
+                InterceptController.cancelClassify(url)
+                InterceptController.releaseDocumentHolds(url)
+            }
         }
         super.onDestroy()
     }
@@ -181,6 +189,5 @@ class VerifyActivity : ComponentActivity() {
         const val EXTRA_TITLE = "title"
         const val EXTRA_PACKAGE = "pkg"
         const val EXTRA_HANDOFF = "handoff"
-        private const val CLASSIFY_TIMEOUT_MS = 8_000L
     }
 }

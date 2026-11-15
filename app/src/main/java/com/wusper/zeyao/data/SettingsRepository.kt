@@ -14,17 +14,27 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import java.util.Calendar
 
 private val Context.settingsStore by preferencesDataStore(name = "zeyao_settings")
 
 class SettingsRepository(private val context: Context) {
+    @Volatile
+    private var snapshot: AppSettings? = null
+
     val settings: Flow<AppSettings> = context.settingsStore.data
         .map { prefs -> runCatching { prefs.toSettings() }.getOrDefault(AppSettings()) }
         .catch { emit(AppSettings()) }
         .distinctUntilChanged()
+        .onEach { snapshot = it }
 
-    suspend fun current(): AppSettings = settings.first()
+    /** In-memory settings if a collector or [current] has already loaded them. */
+    fun cached(): AppSettings? = snapshot
+
+    fun cachedOrDefault(): AppSettings = snapshot ?: AppSettings()
+
+    suspend fun current(): AppSettings = snapshot ?: settings.first()
 
     suspend fun update(transform: (AppSettings) -> AppSettings) {
         context.settingsStore.edit { prefs ->
@@ -78,6 +88,7 @@ class SettingsRepository(private val context: Context) {
                 .joinToString("\n")
             prefs[FONT_SCALE] = next.summaryFontScale.coerceIn(0.85f, 1.6f)
             AppLocale.persist(context, next.language)
+            snapshot = next
         }
     }
 

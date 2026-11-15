@@ -3,18 +3,16 @@ package com.wusper.zeyao
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import com.wusper.zeyao.data.BrowserHandoff
-import com.wusper.zeyao.data.NewsHosts
 import com.wusper.zeyao.intercept.InterceptController
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Default-browser entry: every web URL first hits the small「驗證中」float.
  * The chosen vendor's flash model decides whether to open the 擇要 page
  * or hand the link to the real browser.
+ *
+ * This activity stays off the critical path: it hands the URL to
+ * [InterceptController] and finishes immediately, without waiting on
+ * DataStore or redirect HEADs.
  */
 class LinkRouterActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,56 +30,11 @@ class LinkRouterActivity : Activity() {
         if (raw.isBlank()) {
             startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             finish()
+            overridePendingTransition(0, 0)
             return
         }
-        CoroutineScope(Dispatchers.Main.immediate).launch {
-            val app = application as ZeyaoApp
-            val settings = withContext(Dispatchers.IO) { app.settings.current() }
-            val url = NewsHosts.unwrapUrl(raw)
-            val resolved = com.wusper.zeyao.data.RedirectResolver.resolve(url)
-            val armed = app.settings.isInterceptArmed(settings)
-            val cooled = InterceptController.isUrlCooled(resolved)
-            val skipped = InterceptController.isSkipped(resolved) ||
-                NewsHosts.isSkippedHost(resolved, settings.skippedHosts)
-            val intercept = armed && !cooled && !skipped && (settings.interceptAllPages || NewsHosts.isClassifiableUrl(resolved))
-            if (intercept) {
-                if (settings.interceptAllPages && settings.askBeforeSummary) {
-                    startActivity(
-                        Intent(this@LinkRouterActivity, AskInterceptActivity::class.java).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
-                            putExtra(AskInterceptActivity.EXTRA_URL, resolved)
-                            putExtra(AskInterceptActivity.EXTRA_TITLE, "")
-                            putExtra(AskInterceptActivity.EXTRA_PACKAGE, callingPackage)
-                        },
-                    )
-                } else if (settings.interceptAllPages) {
-                    InterceptController.startOrRefine(resolved, title = "", packageName = callingPackage, startFrom = this@LinkRouterActivity)
-                } else {
-                    startActivity(
-                        Intent(this@LinkRouterActivity, VerifyActivity::class.java).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
-                                Intent.FLAG_ACTIVITY_NO_ANIMATION or
-                                Intent.FLAG_ACTIVITY_SINGLE_TOP
-                            putExtra(VerifyActivity.EXTRA_URL, resolved)
-                            putExtra(VerifyActivity.EXTRA_TITLE, "")
-                            putExtra(VerifyActivity.EXTRA_PACKAGE, callingPackage)
-                            putExtra(VerifyActivity.EXTRA_HANDOFF, true)
-                        },
-                    )
-                }
-                finish()
-                overridePendingTransition(0, 0)
-            } else {
-                val ok = BrowserHandoff.open(app, url, settings.handoffBrowserPackage)
-                if (!ok) {
-                    startActivity(
-                        Intent(this@LinkRouterActivity, MainActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    )
-                }
-                finish()
-            }
-        }
+        InterceptController.onExternalLink(raw, callingPackage, startFrom = this)
+        finish()
+        overridePendingTransition(0, 0)
     }
 }

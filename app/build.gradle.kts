@@ -12,8 +12,8 @@ android {
         applicationId = "com.wusper.zeyao"
         minSdk = 26
         targetSdk = 35
-        versionCode = 694
-        versionName = "6.9.4"
+        versionCode = 695
+        versionName = "6.9.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -83,5 +83,7 @@ dependencies {
     implementation("org.bouncycastle:bcpkix-jdk18on:1.79")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.1")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }
 

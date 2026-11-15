@@ -62,7 +62,8 @@ class InterceptActivity : ComponentActivity() {
         setContent {
             val app = ZeyaoApp.instance
             val scope = rememberCoroutineScope()
-            val settings by app.settings.settings.collectAsState(initial = AppSettings())
+            val initial = remember { InterceptController.cachedSettings() }
+            val settings by app.settings.settings.collectAsState(initial = initial)
             val sessions by InterceptController.sessions.collectAsState()
             val session = sessions[sessionId] ?: InterceptController.peek(sessionId) ?: fallback
 

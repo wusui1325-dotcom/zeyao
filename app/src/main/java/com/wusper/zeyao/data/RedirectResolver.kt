@@ -48,11 +48,11 @@ object RedirectResolver {
     )
 
     fun needsNetworkResolve(url: String): Boolean {
-        val host = runCatching { Uri.parse(url).host }.getOrNull()
-            ?.lowercase()
-            ?.trim()
-            ?.trimEnd('.')
-            ?: return false
+        val host = NewsHosts.hostOf(url)
+            .lowercase()
+            .trim()
+            .trimEnd('.')
+        if (host.isBlank()) return false
         return SHORTENERS.any { host == it || host.endsWith(".$it") }
     }
 

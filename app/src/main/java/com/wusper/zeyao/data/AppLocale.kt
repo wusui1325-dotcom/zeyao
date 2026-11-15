@@ -23,6 +23,9 @@ object AppLocale {
     private const val PREF = "zeyao_locale"
     private const val KEY = "tag"
 
+    @Volatile
+    private var cachedLanguage: AppLanguage? = null
+
     /**
      * SharedPreferences must be reached through [base] itself when the
      * Application is still attaching. [Context.getApplicationContext] is
@@ -39,14 +42,21 @@ object AppLocale {
         runCatching { AppLanguage.fromTag(readTag()) }
             .getOrDefault(AppLanguage.TRADITIONAL)
 
-    fun current(context: Context): AppLanguage =
-        languageOrDefault {
+    fun current(context: Context): AppLanguage {
+        cachedLanguage?.let { return it }
+        val tag = runCatching {
             prefsContext(context)
                 .getSharedPreferences(PREF, Context.MODE_PRIVATE)
                 .getString(KEY, null)
         }
+        if (tag.isFailure) return AppLanguage.TRADITIONAL
+        val language = languageOrDefault { tag.getOrNull() }
+        cachedLanguage = language
+        return language
+    }
 
     fun persist(context: Context, language: AppLanguage) {
+        cachedLanguage = language
         runCatching {
             prefsContext(context)
                 .getSharedPreferences(PREF, Context.MODE_PRIVATE)

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/verify_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:id="@+id/verify_card"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/verify_card"
+        android:gravity="center_horizontal"
+        android:minWidth="168dp"
+        android:orientation="vertical"
+        android:paddingHorizontal="28dp"
+        android:paddingVertical="26dp">
+
+        <ProgressBar
+            android:id="@+id/verify_progress"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:indeterminate="true"
+            android:indeterminateTint="@color/zeyao_cinnabar" />
+
+        <TextView
+            android:id="@+id/verify_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/verifying"
+            android:textColor="@color/zeyao_ink"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</FrameLayout>

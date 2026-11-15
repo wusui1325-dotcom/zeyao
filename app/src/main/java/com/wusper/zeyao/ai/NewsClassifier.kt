@@ -3,6 +3,7 @@ package com.wusper.zeyao.ai
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.OkHttpClient
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -35,6 +36,7 @@ object NewsClassifier {
         temperature: Double = 0.0,
         maxTokens: Int = 8,
         reasoningEffort: String = "low",
+        client: OkHttpClient = HttpClients.classify,
     ): Boolean = withContext(Dispatchers.IO) {
         val resolvedModels = models.map { it.trim() }.filter { it.isNotEmpty() }.ifEmpty { flashModels(provider) }
         val temp = if (temperature.isNaN() || temperature.isInfinite()) 0.0 else temperature.coerceIn(0.0, 2.0)
@@ -48,16 +50,16 @@ object NewsClassifier {
         for ((index, model) in resolvedModels.withIndex()) {
             try {
                 val raw = when (provider) {
-                    AiProvider.GEMINI -> geminiOnce(apiKey, model, title, url, temp, tokens)
-                    AiProvider.CLAUDE -> claudeOnce(apiKey, model, title, url, temp, tokens)
-                    else -> openAiStyleOnce(provider, apiKey, model, title, url, temp, tokens, effort)
+                    AiProvider.GEMINI -> geminiOnce(apiKey, model, title, url, temp, tokens, client)
+                    AiProvider.CLAUDE -> claudeOnce(apiKey, model, title, url, temp, tokens, client)
+                    else -> openAiStyleOnce(provider, apiKey, model, title, url, temp, tokens, effort, client)
                 }
                 val parsed = parseYesNo(raw)
                 if (parsed != null) return@withContext parsed
                 lastError = AiInitException("無法判斷是否為新聞")
             } catch (e: Exception) {
                 lastError = e
-                if (index == models.lastIndex) break
+                if (index == resolvedModels.lastIndex) break
             }
         }
         throw lastError ?: AiInitException("無法判斷是否為新聞")
@@ -81,14 +83,13 @@ object NewsClassifier {
     }
 
     private fun prompt(title: String, url: String): String = buildString {
-        appendLine("判斷這個網頁是不是一則新聞或時事報導。只回覆 YES 或 NO，不要其他文字。")
-        appendLine("YES：新聞、即時報導、專題、評論、通訊社稿、深度報導。")
-        appendLine("NO：搜尋、登入、購物、社群動態、影片首頁、工具、設定、一般公司或個人網站、僅有頻道首頁。")
+        appendLine("只回覆 YES 或 NO。這是新聞或時事報導嗎？")
+        appendLine("YES：新聞、即時報導、專題、評論、通訊社稿。NO：搜尋、登入、購物、社群、工具、首頁。")
         append("標題："); appendLine(title.ifBlank { "（無）" })
         append("網址："); append(url)
     }
 
-    private fun openAiStyleOnce(
+    private suspend fun openAiStyleOnce(
         provider: AiProvider,
         apiKey: String,
         model: String,
@@ -97,6 +98,7 @@ object NewsClassifier {
         temperature: Double,
         maxTokens: Int,
         reasoningEffort: String,
+        client: OkHttpClient,
     ): String {
         val endpoint = when (provider) {
             AiProvider.DEEPSEEK -> "https://api.deepseek.com/chat/completions"
@@ -124,7 +126,7 @@ object NewsClassifier {
             .header("Content-Type", "application/json")
             .post(body.toString().toRequestBody(JSON))
             .build()
-        HttpClients.classify.newCall(request).execute().use { response ->
+        client.newCall(request).await().use { response ->
             if (!response.isSuccessful) {
                 throw AiInitException(friendlyHttpError(response.code, provider.displayName))
             }
@@ -135,13 +137,14 @@ object NewsClassifier {
         }
     }
 
-    private fun geminiOnce(
+    private suspend fun geminiOnce(
         apiKey: String,
         model: String,
         title: String,
         url: String,
         temperature: Double,
         maxTokens: Int,
+        client: OkHttpClient,
     ): String {
         val generationConfig = JSONObject()
             .put("temperature", temperature)
@@ -171,7 +174,7 @@ object NewsClassifier {
             .header("Content-Type", "application/json")
             .post(body.toRequestBody(JSON))
             .build()
-        HttpClients.classify.newCall(request).execute().use { response ->
+        client.newCall(request).await().use { response ->
             if (!response.isSuccessful) {
                 throw AiInitException(friendlyHttpError(response.code, "Google Gemini"))
             }
@@ -188,13 +191,14 @@ object NewsClassifier {
         }
     }
 
-    private fun claudeOnce(
+    private suspend fun claudeOnce(
         apiKey: String,
         model: String,
         title: String,
         url: String,
         temperature: Double,
         maxTokens: Int,
+        client: OkHttpClient,
     ): String {
         val body = JSONObject()
             .put("model", model)
@@ -215,7 +219,7 @@ object NewsClassifier {
             .header("Content-Type", "application/json")
             .post(body.toRequestBody(JSON))
             .build()
-        HttpClients.classify.newCall(request).execute().use { response ->
+        client.newCall(request).await().use { response ->
             if (!response.isSuccessful) {
                 throw AiInitException(friendlyHttpError(response.code, "Anthropic Claude"))
             }

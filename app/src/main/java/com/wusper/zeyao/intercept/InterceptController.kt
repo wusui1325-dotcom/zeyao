@@ -12,13 +12,23 @@ import com.wusper.zeyao.ZeyaoApp
 import com.wusper.zeyao.ai.SummaryCache
 import com.wusper.zeyao.ai.AiClientFactory
 import com.wusper.zeyao.ai.AiInitException
+import com.wusper.zeyao.ai.AiProvider
 import com.wusper.zeyao.ai.GenerationParams
+import com.wusper.zeyao.ai.HttpClients
+import com.wusper.zeyao.ai.NewsClassifier
+import com.wusper.zeyao.ai.VerifyClassifier
+import com.wusper.zeyao.data.AppSettings
+import com.wusper.zeyao.data.BrowserHandoff
 import com.wusper.zeyao.data.ModelRole
 import com.wusper.zeyao.data.ModelRoleSettings
-import com.wusper.zeyao.ai.NewsClassifier
-import com.wusper.zeyao.data.BrowserHandoff
 import com.wusper.zeyao.data.NewsHosts
+import com.wusper.zeyao.data.RedirectResolver
 import com.wusper.zeyao.intercept.helpers.UrlCooldownManager
+import com.wusper.zeyao.intercept.helpers.UrlDebouncer
+import com.wusper.zeyao.intercept.helpers.VerifyOutcome
+import com.wusper.zeyao.intercept.helpers.VerifyPlan
+import com.wusper.zeyao.intercept.helpers.VerifyPlanInput
+import com.wusper.zeyao.intercept.helpers.VerifyPlanner
 import com.wusper.zeyao.data.RecordStatus
 import com.wusper.zeyao.extract.ArticleFetcher
 import com.wusper.zeyao.mitm.LocalCa
@@ -26,7 +36,10 @@ import com.wusper.zeyao.mitm.PageCapture
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -58,7 +71,6 @@ data class InterceptSession(
  * Generation runs in the application scope so 「退出後繼續生成」 can finish after the page closes.
  */
 object InterceptController {
-    private const val DUP_WINDOW_MS = 2_000L
     private const val ENTER_SUPPRESS_MS = 12_000L
     private const val DEFAULT_SITE_COOLDOWN_MS = 10 * 60 * 1000L
     private const val SESSION_KEEP_MS = 15 * 60 * 1000L
@@ -75,9 +87,14 @@ object InterceptController {
 
     private val jobs = ConcurrentHashMap<String, Job>()
     private val urlCooldown = UrlCooldownManager()
+    private val urlDebouncer = UrlDebouncer()
     private val hostPassthroughUntil = ConcurrentHashMap<String, Long>()
-    private val lastSeenUrlAt = ConcurrentHashMap<String, Long>()
     private val holds = ConcurrentHashMap<String, MutableList<HeldConnection>>()
+    private val classifyJobs = ConcurrentHashMap<String, Job>()
+    private val classifyResults = ConcurrentHashMap<String, CompletableDeferred<VerifyOutcome>>()
+
+    @Volatile
+    private var warmedProviderId: String? = null
 
     @Volatile
     private var suppressUntilElapsed: Long = 0L
@@ -132,6 +149,7 @@ object InterceptController {
                 siteCooldownMs = settings.siteCooldownSeconds.coerceIn(10, 600).toLong() * 1000L
                 ScreenshotBuffer.enabled = settings.imageRecognitionEnabled
                 refreshCaInstalled()
+                warmHotPath(settings)
             }
         }
     }
@@ -174,22 +192,60 @@ object InterceptController {
         if (isSkipped(url)) return false
         if (!NewsHosts.isClassifiableUrl(url)) return false
         if (isUrlCooled(url)) return false
-        val settings = app.settings.current()
+        val settings = app.settings.cached() ?: app.settings.current()
         if (!app.settings.isInterceptArmed(settings)) return false
         if (!app.settings.isAppTargeted(settings, packageName)) return false
         return true
     }
 
+    fun cachedSettings(): AppSettings =
+        if (::app.isInitialized) app.settings.cachedOrDefault() else AppSettings()
+
     /**
      * Called from the accessibility service (full URL) or VPN (host-only HTTPS URL).
+     * Ordinary URLs start verify immediately; only known shorteners resolve in
+     * the classify job, after the 驗證中 float is already showing.
      */
     fun onUrlDetected(url: String, title: String? = null, packageName: String? = null) {
         if (!::app.isInitialized) return
         val clean = sanitizeUrl(url) ?: return
-        scope.launch {
-            val resolved = com.wusper.zeyao.data.RedirectResolver.resolve(clean)
-            beginVerify(resolved, title.orEmpty(), packageName, startFrom = null, handoffIfNotNews = false)
+        val unwrapped = NewsHosts.unwrapUrl(clean)
+        beginVerify(
+            unwrapped,
+            title.orEmpty(),
+            packageName,
+            startFrom = null,
+            handoffIfNotNews = false,
+            resolveFirst = RedirectResolver.needsNetworkResolve(unwrapped),
+        )
+    }
+
+    /**
+     * Default-browser entry from [com.wusper.zeyao.LinkRouterActivity].
+     * Must not wait on DataStore or redirect HEADs before returning so the
+     * router can finish immediately.
+     */
+    fun onExternalLink(raw: String, packageName: String?, startFrom: Activity) {
+        if (!::app.isInitialized) return
+        val clean = sanitizeUrl(NewsHosts.unwrapUrl(raw))
+        if (clean == null) {
+            runCatching {
+                startFrom.startActivity(
+                    Intent(startFrom, com.wusper.zeyao.MainActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }
+            return
         }
+        beginVerify(
+            clean,
+            title = "",
+            packageName = packageName,
+            startFrom = startFrom,
+            handoffIfNotNews = true,
+            fallbackToMain = true,
+            resolveFirst = RedirectResolver.needsNetworkResolve(clean),
+        )
     }
 
     fun markNotNews(url: String) {
@@ -246,54 +302,115 @@ object InterceptController {
         packageName: String?,
         startFrom: Context? = null,
         handoffIfNotNews: Boolean,
+        fallbackToMain: Boolean = false,
+        resolveFirst: Boolean = false,
     ) {
         if (!::app.isInitialized) return
         val clean = sanitizeUrl(url) ?: return
-        scope.launch {
-            if (appUiVisible) {
-                if (handoffIfNotNews) openInBrowser(clean)
-                return@launch
+        val cached = app.settings.cached()
+        if (cached != null) {
+            beginVerifyWithSettings(
+                clean, title, packageName, startFrom,
+                handoffIfNotNews, fallbackToMain, resolveFirst, cached,
+            )
+        } else {
+            scope.launch {
+                val loaded = app.settings.current()
+                beginVerifyWithSettings(
+                    clean, title, packageName, startFrom,
+                    handoffIfNotNews, fallbackToMain, resolveFirst, loaded,
+                )
             }
-            val settings = app.settings.current()
-            if (!app.settings.isInterceptArmed(settings) || !app.settings.isAppTargeted(settings, packageName)) {
-                if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
-                return@launch
-            }
-            if (NewsHosts.isSkippedHost(clean, settings.skippedHosts)) {
-                if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
-                return@launch
-            }
-            if (settings.interceptAllPages) {
-                if (isUrlCooled(clean)) {
-                    if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
-                    return@launch
-                }
-                if (settings.askBeforeSummary) {
-                    launchAsk(clean, title, packageName, startFrom)
-                } else {
-                    startOrRefine(clean, title, packageName, startFrom)
-                }
-                return@launch
-            }
-            if (!NewsHosts.isClassifiableUrl(clean) || isUrlCooled(clean)) {
-                if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
-                return@launch
-            }
-            val now = SystemClock.elapsedRealtime()
-            pruneTransientMaps(now)
-            val last = lastSeenUrlAt.put(normalizeUrl(clean), now)
-            if (last != null && now - last < DUP_WINDOW_MS) return@launch
-            val cached = NewsClassifier.cached(NewsHosts.canonicalUrl(clean))
-            if (cached == true) {
-                startOrRefine(clean, title, packageName, startFrom)
-                return@launch
-            }
-            if (cached == false) {
-                if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
-                return@launch
-            }
-            launchVerifyActivity(clean, title, packageName, startFrom, handoffIfNotNews)
         }
+    }
+
+    private fun beginVerifyWithSettings(
+        clean: String,
+        title: String,
+        packageName: String?,
+        startFrom: Context?,
+        handoffIfNotNews: Boolean,
+        fallbackToMain: Boolean,
+        resolveFirst: Boolean,
+        settings: AppSettings,
+    ) {
+        val plan = VerifyPlanner.plan(
+            VerifyPlanInput(
+                appUiVisible = appUiVisible,
+                armed = app.settings.isInterceptArmed(settings),
+                targeted = app.settings.isAppTargeted(settings, packageName),
+                skipped = NewsHosts.isSkippedHost(clean, settings.skippedHosts) || isSkipped(clean),
+                cooled = isUrlCooled(clean),
+                classifiable = NewsHosts.isClassifiableUrl(clean) || resolveFirst,
+                interceptAllPages = settings.interceptAllPages,
+                askBeforeSummary = settings.askBeforeSummary,
+                cachedNews = if (resolveFirst) null else NewsClassifier.cached(NewsHosts.canonicalUrl(clean)),
+            ),
+        )
+        when (plan) {
+            VerifyPlan.ABORT -> {
+                if (handoffIfNotNews) {
+                    openInBrowser(clean, settings.handoffBrowserPackage, fallbackToMain)
+                }
+            }
+            VerifyPlan.ASK -> launchAsk(clean, title, packageName, startFrom)
+            VerifyPlan.SUMMARIZE -> startOrRefine(clean, title, packageName, startFrom)
+            VerifyPlan.CLASSIFY -> {
+                if (!urlDebouncer.accept(clean)) return
+                pruneTransientMaps(SystemClock.elapsedRealtime())
+                ensureClassify(clean, title, settings, resolveFirst)
+                launchVerifyActivity(clean, title, packageName, startFrom, handoffIfNotNews)
+            }
+        }
+    }
+
+    fun pendingClassify(url: String): Deferred<VerifyOutcome>? =
+        classifyResults[NewsHosts.canonicalUrl(url)]
+
+    fun cancelClassify(url: String) {
+        val key = NewsHosts.canonicalUrl(url)
+        classifyJobs.remove(key)?.cancel()
+        classifyResults.remove(key)?.let { if (it.isActive) it.cancel() }
+    }
+
+    fun ensureClassify(
+        url: String,
+        title: String,
+        settings: AppSettings,
+        resolveFirst: Boolean = false,
+    ): Deferred<VerifyOutcome> {
+        val key = NewsHosts.canonicalUrl(url)
+        classifyResults[key]?.let { existing ->
+            if (existing.isActive) return existing
+        }
+        val deferred = CompletableDeferred<VerifyOutcome>()
+        classifyResults[key] = deferred
+        classifyJobs.remove(key)?.cancel()
+        classifyJobs[key] = scope.launch {
+            try {
+                var working = url
+                if (resolveFirst || RedirectResolver.needsNetworkResolve(url)) {
+                    working = RedirectResolver.resolve(url)
+                    if (isSkipped(working) || isUrlCooled(working)) {
+                        deferred.complete(VerifyOutcome(working, news = null))
+                        return@launch
+                    }
+                    NewsClassifier.cached(NewsHosts.canonicalUrl(working))?.let { cached ->
+                        deferred.complete(VerifyOutcome(working, cached))
+                        return@launch
+                    }
+                }
+                val apiKey = app.secrets.getApiKeyForRole(settings.providerId, ModelRole.VERIFY.storageId)
+                val news = VerifyClassifier.run(working, title, settings, apiKey)
+                deferred.complete(VerifyOutcome(working, news))
+            } catch (e: CancellationException) {
+                if (deferred.isActive) deferred.cancel(e)
+                throw e
+            } catch (_: Exception) {
+                if (deferred.isActive) deferred.complete(VerifyOutcome(url, news = null))
+            }
+        }
+        return deferred
     }
 
     fun allowThrough(url: String) {
@@ -316,10 +433,31 @@ object InterceptController {
         startNow(context, intent)
     }
 
-    private fun openInBrowser(url: String, preferred: String? = null) {
+    private fun openInBrowser(url: String, preferred: String? = null, fallbackToMain: Boolean = false) {
         scope.launch(Dispatchers.Main.immediate) {
-            val pkg = preferred ?: runCatching { app.settings.current().handoffBrowserPackage }.getOrNull()
-            BrowserHandoff.open(app, url, pkg)
+            val pkg = preferred?.ifBlank { null } ?: app.settings.cached()?.handoffBrowserPackage?.ifBlank { null }
+            val ok = BrowserHandoff.open(app, url, pkg)
+            if (!ok && fallbackToMain) {
+                runCatching {
+                    app.startActivity(
+                        Intent(app, com.wusper.zeyao.MainActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun warmHotPath(settings: AppSettings) {
+        if (!settings.interceptEnabled && !app.settings.isInterceptArmed(settings)) return
+        runCatching {
+            app.secrets.getApiKeyForRole(settings.providerId, ModelRole.VERIFY.storageId)
+            app.secrets.getApiKeyForRole(settings.providerId, ModelRole.SUMMARIZE.storageId)
+            app.secrets.getApiKey(settings.providerId)
+        }
+        if (warmedProviderId != settings.providerId) {
+            warmedProviderId = settings.providerId
+            HttpClients.warmClassify(AiProvider.fromId(settings.providerId))
         }
     }
 
@@ -401,8 +539,8 @@ object InterceptController {
         hostPassthroughUntil[session.host.lowercase()] = SystemClock.elapsedRealtime() + ENTER_SUPPRESS_MS
         releaseHolds(session.host)
         maybeCancelOnExit(sessionId)
-        scope.launch(Dispatchers.Main) {
-            val preferred = runCatching { app.settings.current().handoffBrowserPackage }.getOrNull()
+        scope.launch(Dispatchers.Main.immediate) {
+            val preferred = app.settings.cached()?.handoffBrowserPackage?.ifBlank { null }
             BrowserHandoff.open(app, session.url, preferred)
         }
     }
@@ -446,7 +584,8 @@ object InterceptController {
 
     fun maybeCancelOnExit(sessionId: String) {
         scope.launch {
-            val continueOnExit = app.settings.current().continueOnExit
+            val continueOnExit = app.settings.cached()?.continueOnExit
+                ?: app.settings.current().continueOnExit
             if (!continueOnExit) {
                 jobs.remove(sessionId)?.cancel()
                 val current = _sessions.value[sessionId]
@@ -484,7 +623,7 @@ object InterceptController {
                 }
             }
             if ((NewsHosts.isBareHostUrl(workingUrl) || !NewsHosts.isClassifiableUrl(workingUrl)) &&
-                !app.settings.current().interceptAllPages
+                !(app.settings.cached()?.interceptAllPages ?: app.settings.current().interceptAllPages)
             ) {
                 fail(id, errorString(com.wusper.zeyao.R.string.no_article_url_still_enter))
                 return@launch
@@ -508,7 +647,7 @@ object InterceptController {
                 updateSession(id) { it.copy(title = workingTitle, url = workingUrl) }
                 app.records.update(id, title = workingTitle, url = workingUrl)
             }
-            val settings = app.settings.current()
+            val settings = app.settings.cached() ?: app.settings.current()
             // Check short-lived cache first
             val cached = SummaryCache.get(workingUrl)
             if (cached != null && lengthOverride == null && searchOverride == null) {
@@ -760,8 +899,9 @@ object InterceptController {
         if (hostPassthroughUntil.size > 64) {
             hostPassthroughUntil.entries.removeIf { it.value <= now }
         }
-        if (lastSeenUrlAt.size > 128) {
-            lastSeenUrlAt.entries.removeIf { now - it.value > DUP_WINDOW_MS * 8 }
+        if (classifyResults.size > 32) {
+            classifyResults.entries.removeIf { !it.value.isActive && it.value.isCompleted }
+            classifyJobs.entries.removeIf { (_, job) -> job.isCompleted || job.isCancelled }
         }
     }
 
@@ -798,7 +938,6 @@ object InterceptController {
         return uri.buildUpon().fragment(null).build().toString()
     }
 
-    private fun normalizeUrl(url: String): String = NewsHosts.canonicalUrl(url)
 }
 
 private class IdempotentHold(private val inner: HeldConnection) : HeldConnection {
