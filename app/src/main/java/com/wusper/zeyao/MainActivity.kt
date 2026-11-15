@@ -35,6 +35,7 @@ import com.wusper.zeyao.ui.main.RecordDetailScreen
 import com.wusper.zeyao.ui.onboarding.OnboardingRoute
 import com.wusper.zeyao.ui.other.OtherScreen
 import com.wusper.zeyao.ui.settings.LaunchableApp
+import com.wusper.zeyao.ui.settings.ModelParamsScreen
 import com.wusper.zeyao.ui.settings.SettingsScreen
 import com.wusper.zeyao.ui.lock.BiometricGate
 import com.wusper.zeyao.ui.lock.LockScreen
@@ -244,11 +245,19 @@ class MainActivity : FragmentActivity() {
                                 },
                             )
                         }
+                        route == Route.MODEL_PARAMS -> {
+                            ModelParamsScreen(
+                                settings = settings,
+                                onBack = { route = Route.OTHER },
+                                onUpdate = { transform -> scope.launch { app.settings.update(transform) } },
+                            )
+                        }
                         route == Route.OTHER -> {
                             OtherScreen(
                                 currentProviderId = settings.providerId,
                                 currentLanguage = settings.language,
                                 onBack = { route = Route.MAIN },
+                                onOpenModelParams = { route = Route.MODEL_PARAMS },
                                 onReconfigureKey = { route = Route.RECONFIGURE },
                                 onTestUrl = { raw ->
                                     val url = if (raw.startsWith("http")) raw else "https://$raw"
@@ -473,5 +482,5 @@ class MainActivity : FragmentActivity() {
             .show()
     }
 
-    private enum class Route { MAIN, SETTINGS, OTHER, RECORD, RECONFIGURE }
+    private enum class Route { MAIN, SETTINGS, OTHER, MODEL_PARAMS, RECORD, RECONFIGURE }
 }

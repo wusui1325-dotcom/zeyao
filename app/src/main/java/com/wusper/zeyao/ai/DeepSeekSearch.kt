@@ -39,13 +39,26 @@ object DeepSeekSearch {
         title: String,
         url: String,
         articleText: String,
+        model: String = "deepseek-flash",
+        temperature: Double = 0.3,
+        maxTokens: Int = 60,
+        count: Int = 5,
+        fallback: Boolean = false,
     ): List<Hit> = withContext(Dispatchers.IO) {
-        val keywords = extractKeywords(apiKey, title, url, articleText)
+        val keywords = extractKeywords(apiKey, title, url, articleText, model, temperature, maxTokens)
         val query = keywords.ifBlank { title.ifBlank { url } }.take(128)
-        search(apiKey, query, count = 5)
+        searchWithFallback(apiKey, query, fallback, count)
     }
 
-    private fun extractKeywords(apiKey: String, title: String, url: String, articleText: String): String {
+    private fun extractKeywords(
+        apiKey: String,
+        title: String,
+        url: String,
+        articleText: String,
+        model: String,
+        temperature: Double,
+        maxTokens: Int,
+    ): String {
         val bodySnippet = articleText.trim().take(2000)
         val prompt = buildString {
             appendLine("從以下新聞抽出 3～6 個最能代表這則新聞的關鍵詞或短語，用空格分隔，不要解釋，不要標點。")
@@ -56,11 +69,14 @@ object DeepSeekSearch {
                 append(bodySnippet)
             }
         }
+        val safeModel = model.trim().ifBlank { "deepseek-flash" }
+        val temp = if (temperature.isNaN() || temperature.isInfinite()) 0.3 else temperature.coerceIn(0.0, 2.0)
+        val tokens = if (maxTokens <= 0) 60 else maxTokens.coerceIn(16, 256)
         val body = JSONObject()
-            .put("model", "deepseek-flash")
+            .put("model", safeModel)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", prompt)))
-            .put("max_tokens", 60)
-            .put("temperature", 0.3)
+            .put("max_tokens", tokens)
+            .put("temperature", temp)
             .put("stream", false)
             .toString()
         val request = Request.Builder()

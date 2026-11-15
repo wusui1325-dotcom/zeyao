@@ -28,12 +28,16 @@ object FactChecker {
         url: String,
         articleText: String,
         fallback: Boolean = false,
+        temperature: Double = 0.2,
+        maxTokens: Int = 200,
+        searchCount: Int = 2,
     ): List<Source> = withContext(Dispatchers.IO) {
-        val facts = extractFacts(apiKey, providerId, model, title, url, articleText)
+        val facts = extractFacts(apiKey, providerId, model, title, url, articleText, temperature, maxTokens)
         if (facts.isEmpty()) return@withContext emptyList()
+        val count = searchCount.coerceIn(1, 10)
         coroutineScope {
             facts.map { fact ->
-                async { searchOne(apiKey, fact, fallback) }
+                async { searchOne(apiKey, fact, fallback, count) }
             }.awaitAll().flatten()
         }
     }
@@ -45,6 +49,8 @@ object FactChecker {
         title: String,
         url: String,
         articleText: String,
+        temperature: Double,
+        maxTokens: Int,
     ): List<String> {
         val prompt = buildString {
             appendLine("從以下文章抽出關鍵詞、關鍵人物、關鍵事件、關鍵時間。")
@@ -55,7 +61,7 @@ object FactChecker {
             appendLine("正文：")
             append(articleText.take(6000))
         }
-        val content = callChat(apiKey, providerId, model, prompt) ?: return emptyList()
+        val content = callChat(apiKey, providerId, model, prompt, temperature, maxTokens) ?: return emptyList()
         return content.lines()
             .map { it.trim().removePrefix("-").trim() }
             .filter { it.isNotBlank() && it.length <= 20 }
@@ -63,8 +69,8 @@ object FactChecker {
             .take(12)
     }
 
-    private suspend fun searchOne(apiKey: String, query: String, fallback: Boolean): List<Source> {
-        val hits = DeepSeekSearch.searchWithFallback(apiKey, query, fallback, count = 2)
+    private suspend fun searchOne(apiKey: String, query: String, fallback: Boolean, count: Int): List<Source> {
+        val hits = DeepSeekSearch.searchWithFallback(apiKey, query, fallback, count = count)
         return hits.map { Source(query, it.title, it.url, it.summary.ifBlank { it.snippet }) }
     }
 
@@ -82,18 +88,28 @@ object FactChecker {
         }
     }
 
-    private fun callChat(apiKey: String, providerId: String, model: String, prompt: String): String? {
+    private fun callChat(
+        apiKey: String,
+        providerId: String,
+        model: String,
+        prompt: String,
+        temperature: Double,
+        maxTokens: Int,
+    ): String? {
         val base = when (providerId) {
             "deepseek" -> "https://api.deepseek.com"
             "grok" -> "https://api.x.ai/v1"
             "openai" -> "https://api.openai.com/v1"
             else -> return null
         }
+        val safeModel = model.trim().ifBlank { return null }
+        val temp = if (temperature.isNaN() || temperature.isInfinite()) 0.2 else temperature.coerceIn(0.0, 2.0)
+        val tokens = if (maxTokens <= 0) 200 else maxTokens.coerceIn(32, 800)
         val body = JSONObject()
-            .put("model", model)
+            .put("model", safeModel)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", prompt)))
-            .put("max_tokens", 200)
-            .put("temperature", 0.2)
+            .put("max_tokens", tokens)
+            .put("temperature", temp)
             .put("stream", false)
             .toString()
         val request = Request.Builder()

@@ -31,15 +31,26 @@ object NewsClassifier {
         apiKey: String,
         title: String,
         url: String,
+        models: List<String> = emptyList(),
+        temperature: Double = 0.0,
+        maxTokens: Int = 8,
+        reasoningEffort: String = "low",
     ): Boolean = withContext(Dispatchers.IO) {
-        val models = flashModels(provider)
+        val resolvedModels = models.map { it.trim() }.filter { it.isNotEmpty() }.ifEmpty { flashModels(provider) }
+        val temp = if (temperature.isNaN() || temperature.isInfinite()) 0.0 else temperature.coerceIn(0.0, 2.0)
+        val tokens = if (maxTokens <= 0) 8 else maxTokens.coerceIn(4, 64)
+        val effort = when (reasoningEffort.trim().lowercase()) {
+            "medium" -> "medium"
+            "high" -> "high"
+            else -> "low"
+        }
         var lastError: Exception? = null
-        for ((index, model) in models.withIndex()) {
+        for ((index, model) in resolvedModels.withIndex()) {
             try {
                 val raw = when (provider) {
-                    AiProvider.GEMINI -> geminiOnce(apiKey, model, title, url)
-                    AiProvider.CLAUDE -> claudeOnce(apiKey, model, title, url)
-                    else -> openAiStyleOnce(provider, apiKey, model, title, url)
+                    AiProvider.GEMINI -> geminiOnce(apiKey, model, title, url, temp, tokens)
+                    AiProvider.CLAUDE -> claudeOnce(apiKey, model, title, url, temp, tokens)
+                    else -> openAiStyleOnce(provider, apiKey, model, title, url, temp, tokens, effort)
                 }
                 val parsed = parseYesNo(raw)
                 if (parsed != null) return@withContext parsed
@@ -52,7 +63,7 @@ object NewsClassifier {
         throw lastError ?: AiInitException("無法判斷是否為新聞")
     }
 
-    private fun flashModels(provider: AiProvider): List<String> = when (provider) {
+    internal fun flashModels(provider: AiProvider): List<String> = when (provider) {
         AiProvider.DEEPSEEK -> listOf("deepseek-flash", "deepseek-v4-flash")
         AiProvider.OPENAI -> listOf("gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1-nano")
         AiProvider.GEMINI -> listOf(
@@ -83,6 +94,9 @@ object NewsClassifier {
         model: String,
         title: String,
         url: String,
+        temperature: Double,
+        maxTokens: Int,
+        reasoningEffort: String,
     ): String {
         val endpoint = when (provider) {
             AiProvider.DEEPSEEK -> "https://api.deepseek.com/chat/completions"
@@ -97,12 +111,12 @@ object NewsClassifier {
                     JSONObject().put("role", "user").put("content", prompt(title, url)),
                 ),
             )
-            .put("temperature", 0)
-            .put("max_tokens", 8)
+            .put("temperature", temperature)
+            .put("max_tokens", maxTokens)
             .put("stream", false)
         if (provider == AiProvider.DEEPSEEK) {
             body.put("thinking", JSONObject().put("type", "disabled"))
-            body.put("reasoning_effort", "low")
+            body.put("reasoning_effort", if (reasoningEffort == "high") "high" else "low")
         }
         val request = Request.Builder()
             .url(endpoint)
@@ -121,10 +135,17 @@ object NewsClassifier {
         }
     }
 
-    private fun geminiOnce(apiKey: String, model: String, title: String, url: String): String {
+    private fun geminiOnce(
+        apiKey: String,
+        model: String,
+        title: String,
+        url: String,
+        temperature: Double,
+        maxTokens: Int,
+    ): String {
         val generationConfig = JSONObject()
-            .put("temperature", 0)
-            .put("maxOutputTokens", 8)
+            .put("temperature", temperature)
+            .put("maxOutputTokens", maxTokens)
             .put("thinkingConfig", JSONObject().put("thinkingBudget", 0))
         val body = JSONObject()
             .put(
@@ -167,11 +188,18 @@ object NewsClassifier {
         }
     }
 
-    private fun claudeOnce(apiKey: String, model: String, title: String, url: String): String {
+    private fun claudeOnce(
+        apiKey: String,
+        model: String,
+        title: String,
+        url: String,
+        temperature: Double,
+        maxTokens: Int,
+    ): String {
         val body = JSONObject()
             .put("model", model)
-            .put("max_tokens", 8)
-            .put("temperature", 0)
+            .put("max_tokens", maxTokens)
+            .put("temperature", temperature)
             .put("stream", false)
             .put(
                 "messages",

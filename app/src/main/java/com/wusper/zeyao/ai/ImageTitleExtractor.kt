@@ -18,12 +18,19 @@ import java.io.ByteArrayOutputStream
 object ImageTitleExtractor {
     private val JSON = "application/json; charset=utf-8".toMediaType()
 
-    suspend fun extract(apiKey: String, providerId: String, bitmap: Bitmap): String? = withContext(Dispatchers.IO) {
+    suspend fun extract(
+        apiKey: String,
+        providerId: String,
+        bitmap: Bitmap,
+        model: String? = null,
+        temperature: Double = 0.2,
+    ): String? = withContext(Dispatchers.IO) {
         val b64 = encode(bitmap) ?: return@withContext null
         val prompt = "只從這張截圖找出新聞標題或網址。優先返回標題。只輸出一行，不要解釋。如果沒有就輸出空。"
+        val temp = if (temperature.isNaN() || temperature.isInfinite()) 0.2 else temperature.coerceIn(0.0, 2.0)
         when (providerId) {
-            "gemini" -> callGemini(apiKey, b64, prompt)
-            else -> callOpenAiStyle(apiKey, providerId, b64, prompt)
+            "gemini" -> callGemini(apiKey, b64, prompt, model, temp)
+            else -> callOpenAiStyle(apiKey, providerId, b64, prompt, model, temp)
         }
     }
 
@@ -33,23 +40,31 @@ object ImageTitleExtractor {
         Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
     }.getOrNull()
 
-    private fun callOpenAiStyle(apiKey: String, providerId: String, b64: String, prompt: String): String? {
+    private fun callOpenAiStyle(
+        apiKey: String,
+        providerId: String,
+        b64: String,
+        prompt: String,
+        model: String?,
+        temperature: Double,
+    ): String? {
         val base = when (providerId) {
             "deepseek" -> "https://api.deepseek.com"
             "grok" -> "https://api.x.ai/v1"
             "openai" -> "https://api.openai.com/v1"
             else -> "https://api.deepseek.com"
         }
-        val model = when (providerId) {
+        val defaultModel = when (providerId) {
             "deepseek" -> "deepseek-flash"
             "grok" -> "grok-2-vision-1212"
             "openai" -> "gpt-4o-mini"
             else -> "deepseek-flash"
         }
+        val resolvedModel = model?.trim()?.ifBlank { null } ?: defaultModel
         val body = JSONObject()
-            .put("model", model)
+            .put("model", resolvedModel)
             .put("max_tokens", 80)
-            .put("temperature", 0.2)
+            .put("temperature", temperature)
             .put(
                 "messages",
                 JSONArray().put(
@@ -86,7 +101,15 @@ object ImageTitleExtractor {
         }.getOrNull()?.takeIf { it.isNotBlank() }
     }
 
-    private fun callGemini(apiKey: String, b64: String, prompt: String): String? {
+    private fun callGemini(
+        apiKey: String,
+        b64: String,
+        prompt: String,
+        model: String?,
+        temperature: Double,
+    ): String? {
+        val resolvedModel = model?.trim()?.ifBlank { null } ?: "gemini-2.0-flash"
+        val generationConfig = JSONObject().put("temperature", temperature).put("maxOutputTokens", 80)
         val body = JSONObject()
             .put(
                 "contents",
@@ -106,9 +129,10 @@ object ImageTitleExtractor {
                     ),
                 ),
             )
+            .put("generationConfig", generationConfig)
             .toString()
         val request = Request.Builder()
-            .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey")
+            .url("https://generativelanguage.googleapis.com/v1beta/models/$resolvedModel:generateContent?key=$apiKey")
             .header("Content-Type", "application/json")
             .post(body.toRequestBody(JSON))
             .build()

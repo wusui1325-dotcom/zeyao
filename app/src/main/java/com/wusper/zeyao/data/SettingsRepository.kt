@@ -60,6 +60,14 @@ class SettingsRepository(private val context: Context) {
             prefs[TEMPERATURE] = next.temperature.toFloat()
             prefs[MAX_TOKENS] = next.maxTokens
             prefs[FALLBACK_MODELS] = next.fallbackModels
+            prefs[SEARCH_MODEL] = next.searchModel
+            prefs[SUMMARIZE_MODEL] = next.summarizeModel
+            prefs[VERIFY_MODEL] = next.verifyModel
+            prefs[SEARCH_TEMPERATURE] = next.searchTemperature.toFloat()
+            prefs[VERIFY_TEMPERATURE] = next.verifyTemperature.toFloat()
+            prefs[SEARCH_INTENSITY] = next.searchIntensity
+            prefs[SUMMARIZE_INTENSITY] = next.summarizeIntensity
+            prefs[VERIFY_INTENSITY] = next.verifyIntensity
             prefs[INTERCEPT_COUNT] = next.interceptCount
             prefs[BIOMETRIC] = next.biometricUnlockEnabled
             prefs[HIGH_CONTRAST] = next.themeStyle == ThemeStyle.HIGH_CONTRAST
@@ -143,6 +151,14 @@ class SettingsRepository(private val context: Context) {
         temperature = (this[TEMPERATURE] ?: 1.0f).toDouble(),
         maxTokens = this[MAX_TOKENS] ?: 1200,
         fallbackModels = this[FALLBACK_MODELS].orEmpty(),
+        searchModel = this[SEARCH_MODEL].orEmpty(),
+        summarizeModel = this[SUMMARIZE_MODEL].orEmpty(),
+        verifyModel = this[VERIFY_MODEL].orEmpty(),
+        searchTemperature = (this[SEARCH_TEMPERATURE] ?: 0.3f).toDouble(),
+        verifyTemperature = (this[VERIFY_TEMPERATURE] ?: 0.0f).toDouble(),
+        searchIntensity = this[SEARCH_INTENSITY] ?: 3,
+        summarizeIntensity = this[SUMMARIZE_INTENSITY] ?: 0,
+        verifyIntensity = this[VERIFY_INTENSITY] ?: 1,
         interceptCount = this[INTERCEPT_COUNT] ?: 0,
         biometricUnlockEnabled = this[BIOMETRIC] ?: false,
         highContrastEnabled = this[HIGH_CONTRAST] ?: false,
@@ -182,6 +198,14 @@ class SettingsRepository(private val context: Context) {
         val TEMPERATURE = floatPreferencesKey("temperature")
         val MAX_TOKENS = intPreferencesKey("max_tokens")
         val FALLBACK_MODELS = stringPreferencesKey("fallback_models")
+        val SEARCH_MODEL = stringPreferencesKey(ModelRoleSettings.PrefKeys.SEARCH_MODEL)
+        val SUMMARIZE_MODEL = stringPreferencesKey(ModelRoleSettings.PrefKeys.SUMMARIZE_MODEL)
+        val VERIFY_MODEL = stringPreferencesKey(ModelRoleSettings.PrefKeys.VERIFY_MODEL)
+        val SEARCH_TEMPERATURE = floatPreferencesKey(ModelRoleSettings.PrefKeys.SEARCH_TEMPERATURE)
+        val VERIFY_TEMPERATURE = floatPreferencesKey(ModelRoleSettings.PrefKeys.VERIFY_TEMPERATURE)
+        val SEARCH_INTENSITY = intPreferencesKey(ModelRoleSettings.PrefKeys.SEARCH_INTENSITY)
+        val SUMMARIZE_INTENSITY = intPreferencesKey(ModelRoleSettings.PrefKeys.SUMMARIZE_INTENSITY)
+        val VERIFY_INTENSITY = intPreferencesKey(ModelRoleSettings.PrefKeys.VERIFY_INTENSITY)
         val INTERCEPT_COUNT = intPreferencesKey("intercept_count")
         val BIOMETRIC = booleanPreferencesKey("biometric_unlock")
         val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")

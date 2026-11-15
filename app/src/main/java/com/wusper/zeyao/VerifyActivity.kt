@@ -18,6 +18,8 @@ import com.wusper.zeyao.ai.AiProvider
 import com.wusper.zeyao.ai.NewsClassifier
 import com.wusper.zeyao.data.AppLocale
 import com.wusper.zeyao.data.AppSettings
+import com.wusper.zeyao.data.ModelRole
+import com.wusper.zeyao.data.ModelRoleSettings
 import com.wusper.zeyao.data.BrowserHandoff
 import com.wusper.zeyao.data.NewsHosts
 import com.wusper.zeyao.intercept.InterceptController
@@ -88,14 +90,26 @@ class VerifyActivity : ComponentActivity() {
             handoffPackage = settings?.handoffBrowserPackage
             val knownNews = NewsHosts.shouldInterceptUrl(url, loose = true)
             val outcome = runCatching {
-                val key = settings?.let { app.secrets.getApiKey(it.providerId) }.orEmpty()
+                val key = settings?.let {
+                    app.secrets.getApiKeyForRole(it.providerId, ModelRole.VERIFY.storageId)
+                }.orEmpty()
                 if (key.isBlank()) return@runCatching if (knownNews) true else null
                 val canonical = NewsHosts.canonicalUrl(url)
                 val cached = NewsClassifier.cached(canonical)
                 if (cached != null) return@runCatching cached
                 val provider = AiProvider.fromId(settings?.providerId ?: "deepseek")
+                val verify = settings?.let { ModelRoleSettings.resolve(ModelRole.VERIFY, it, provider) }
                 val result = withTimeout(CLASSIFY_TIMEOUT_MS) {
-                    NewsClassifier.classify(provider, key, title, url)
+                    NewsClassifier.classify(
+                        provider = provider,
+                        apiKey = key,
+                        title = title,
+                        url = url,
+                        models = verify?.models.orEmpty(),
+                        temperature = verify?.temperature ?: 0.0,
+                        maxTokens = verify?.maxTokens ?: 8,
+                        reasoningEffort = verify?.reasoningEffort ?: "low",
+                    )
                 }
                 NewsClassifier.remember(canonical, result)
                 result

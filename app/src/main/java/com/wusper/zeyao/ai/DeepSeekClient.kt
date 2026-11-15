@@ -80,7 +80,10 @@ class DeepSeekClient : AiClient {
         onDelta: (String) -> Unit,
     ) {
         val thinkingType = if (params.thinkingEnabled) "enabled" else "disabled"
-        val effort = if (params.reasoningEffortHigh) "high" else "low"
+        val effort = when (val raw = params.effectiveReasoningEffort()) {
+            "low" -> "low"
+            else -> "high" // DeepSeek documents low/high; map medium to high
+        }
         val body = JSONObject()
             .put("model", model)
             .put(

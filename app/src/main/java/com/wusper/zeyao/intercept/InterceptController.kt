@@ -13,6 +13,8 @@ import com.wusper.zeyao.ai.SummaryCache
 import com.wusper.zeyao.ai.AiClientFactory
 import com.wusper.zeyao.ai.AiInitException
 import com.wusper.zeyao.ai.GenerationParams
+import com.wusper.zeyao.data.ModelRole
+import com.wusper.zeyao.data.ModelRoleSettings
 import com.wusper.zeyao.ai.NewsClassifier
 import com.wusper.zeyao.data.BrowserHandoff
 import com.wusper.zeyao.data.NewsHosts
@@ -515,7 +517,11 @@ object InterceptController {
                 return@launch
             }
             ScreenshotBuffer.enabled = settings.imageRecognitionEnabled
-            val key = app.secrets.getApiKey(settings.providerId)
+            val search = ModelRoleSettings.resolve(ModelRole.SEARCH, settings)
+            val summarize = ModelRoleSettings.resolve(ModelRole.SUMMARIZE, settings)
+            val searchKey = app.secrets.getApiKeyForRole(settings.providerId, ModelRole.SEARCH.storageId)
+            val summarizeKey = app.secrets.getApiKeyForRole(settings.providerId, ModelRole.SUMMARIZE.storageId)
+            val key = summarizeKey
             if (key.isNullOrBlank()) {
                 fail(id, errorString(com.wusper.zeyao.R.string.no_api_key_still_enter))
                 return@launch
@@ -533,14 +539,20 @@ object InterceptController {
                     val shot = ScreenshotBuffer.previous()
                     if (shot != null) {
                         val extracted = com.wusper.zeyao.ai.ImageTitleExtractor.extract(
-                            apiKey = key,
+                            apiKey = searchKey ?: key,
                             providerId = settings.providerId,
                             bitmap = shot,
+                            model = search.model,
+                            temperature = search.temperature,
                         )
                         if (!extracted.isNullOrBlank()) {
                             imageHint = "截圖辨識結果（優先標題）：$extracted\n"
                             if (settings.providerId == "deepseek") {
-                                val hits = com.wusper.zeyao.ai.DeepSeekSearch.search(key, extracted.take(100), count = 3)
+                                val hits = com.wusper.zeyao.ai.DeepSeekSearch.search(
+                                    searchKey ?: key,
+                                    extracted.take(100),
+                                    count = search.searchCount.coerceAtLeast(3),
+                                )
                                 val formatted = com.wusper.zeyao.ai.DeepSeekSearch.formatForPrompt(hits)
                                 if (formatted.isNotBlank()) imageHint += formatted + "\n"
                             }
@@ -553,13 +565,16 @@ object InterceptController {
                 var factContext = ""
                 if (settings.authenticityCheckEnabled && settings.providerId == "deepseek") {
                     factSources = com.wusper.zeyao.ai.FactChecker.check(
-                        apiKey = key,
+                        apiKey = searchKey ?: key,
                         providerId = settings.providerId,
-                        model = "deepseek-flash",
+                        model = search.model,
                         title = workingTitle,
                         url = workingUrl,
                         articleText = article?.text.orEmpty(),
                         fallback = settings.searchNewsEnabled,
+                        temperature = search.temperature,
+                        maxTokens = maxOf(search.maxTokens, 200),
+                        searchCount = search.factSearchCount,
                     )
                     factContext = com.wusper.zeyao.ai.FactChecker.format(factSources)
                     if (factSources.isNotEmpty()) {
@@ -567,11 +582,16 @@ object InterceptController {
                     }
                 }
                 val searchContext = if (useSearch) {
-                    val hits = com.wusper.zeyao.ai.DeepSeekSearch.searchWithFallback(
-                        apiKey = key,
-                        query = workingTitle.ifBlank { workingUrl },
+                    val hits = com.wusper.zeyao.ai.DeepSeekSearch.searchForArticle(
+                        apiKey = searchKey ?: key,
+                        title = workingTitle,
+                        url = workingUrl,
+                        articleText = article?.text.orEmpty(),
+                        model = search.model,
+                        temperature = search.temperature,
+                        maxTokens = search.maxTokens,
+                        count = search.searchCount,
                         fallback = settings.searchNewsEnabled,
-                        count = 5,
                     )
                     com.wusper.zeyao.ai.DeepSeekSearch.formatForPrompt(hits)
                 } else {
@@ -604,9 +624,11 @@ object InterceptController {
                         summaryLength = lengthOverride ?: settings.summaryLength,
                         searchNews = useSearch,
                         antiFraud = settings.antiFraudEnabled,
-                        temperature = settings.temperature,
-                        maxTokens = settings.maxTokens,
-                        fallbackModels = settings.fallbackModels,
+                        temperature = summarize.temperature,
+                        maxTokens = summarize.maxTokens,
+                        fallbackModels = summarize.models.joinToString(","),
+                        reasoningEffort = summarize.reasoningEffort,
+                        reasoningEffortHigh = summarize.reasoningEffort == "high",
                     ),
                 ).collect { delta ->
                     if (delta.isEmpty()) return@collect

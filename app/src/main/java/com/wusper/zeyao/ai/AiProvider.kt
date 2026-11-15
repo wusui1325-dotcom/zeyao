@@ -58,6 +58,8 @@ enum class AiProvider(
 data class GenerationParams(
     val thinkingEnabled: Boolean = false,
     val reasoningEffortHigh: Boolean = true,
+    /** "low", "medium", or "high". Blank falls back to [reasoningEffortHigh]. */
+    val reasoningEffort: String = "",
     val temperature: Double = 1.2,
     val maxTokens: Int = 1000,
     val stream: Boolean = true,
@@ -67,6 +69,12 @@ data class GenerationParams(
     val antiFraud: Boolean = false,
     val fallbackModels: String = "",
 ) {
+    fun effectiveReasoningEffort(): String {
+        val raw = reasoningEffort.trim().lowercase()
+        if (raw == "low" || raw == "medium" || raw == "high") return raw
+        return if (reasoningEffortHigh) "high" else "low"
+    }
+
     companion object {
         val DEFAULT = GenerationParams()
     }

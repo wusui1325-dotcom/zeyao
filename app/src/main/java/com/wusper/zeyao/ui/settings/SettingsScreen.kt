@@ -58,7 +58,6 @@ import com.wusper.zeyao.ui.components.SectionLabel
 import com.wusper.zeyao.ui.components.TopAction
 import com.wusper.zeyao.ui.settings.sections.InterceptSection
 import com.wusper.zeyao.ui.settings.sections.HttpsSection
-import com.wusper.zeyao.ui.settings.sections.GenerationParamsSection
 import com.wusper.zeyao.ui.lock.BiometricGate
 import com.wusper.zeyao.ui.settings.sections.StatsSection
 import android.widget.Toast
@@ -431,7 +430,6 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-            GenerationParamsSection(settings, onUpdate)
             StatsSection(settings)
             SectionLabel(stringResource(R.string.section_privacy))
             SettingSwitch(

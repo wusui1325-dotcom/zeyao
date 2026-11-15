@@ -12,8 +12,8 @@ android {
         applicationId = "com.wusper.zeyao"
         minSdk = 26
         targetSdk = 35
-        versionCode = 693
-        versionName = "6.9.3"
+        versionCode = 694
+        versionName = "6.9.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

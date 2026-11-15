@@ -7,28 +7,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.wusper.zeyao.R
 import com.wusper.zeyao.data.AppSettings
 import com.wusper.zeyao.ui.components.SectionLabel
 import com.wusper.zeyao.ui.settings.SettingSwitch
-import java.util.Locale
 
 @Composable
 fun InterceptSection(
@@ -91,52 +80,6 @@ fun InterceptSection(
             onChecked = { enabled -> onUpdate { it.copy(askBeforeSummary = enabled) } },
         )
     }
-}
-
-@Composable
-fun GenerationParamsSection(
-    settings: AppSettings,
-    onUpdate: ((AppSettings) -> AppSettings) -> Unit,
-) {
-    SectionLabel(stringResource(R.string.section_generation_params))
-    var temperature by remember(settings.temperature) { mutableFloatStateOf(settings.temperature.toFloat()) }
-    Text(
-        stringResource(R.string.temperature_label, String.format(Locale.US, "%.1f", temperature)),
-        style = MaterialTheme.typography.bodyMedium,
-    )
-    Slider(
-        value = temperature,
-        onValueChange = { temperature = it },
-        onValueChangeFinished = { onUpdate { it.copy(temperature = temperature.toDouble()) } },
-        valueRange = 0f..2f,
-        steps = 19,
-    )
-    var maxTokens by remember(settings.maxTokens) { mutableFloatStateOf(settings.maxTokens.toFloat()) }
-    Text(
-        stringResource(R.string.max_tokens_label, maxTokens.toInt()),
-        style = MaterialTheme.typography.bodyMedium,
-    )
-    Slider(
-        value = maxTokens,
-        onValueChange = { maxTokens = it },
-        onValueChangeFinished = { onUpdate { it.copy(maxTokens = maxTokens.toInt()) } },
-        valueRange = 200f..2000f,
-        steps = 18,
-    )
-    var fallback by remember(settings.fallbackModels) { mutableStateOf(settings.fallbackModels) }
-    OutlinedTextField(
-        value = fallback,
-        onValueChange = { fallback = it },
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text(stringResource(R.string.fallback_models_label)) },
-        placeholder = { Text(stringResource(R.string.fallback_models_builtin)) },
-        supportingText = { Text(stringResource(R.string.fallback_models_hint)) },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(
-            onDone = { onUpdate { it.copy(fallbackModels = fallback.trim()) } },
-        ),
-    )
 }
 
 @Composable

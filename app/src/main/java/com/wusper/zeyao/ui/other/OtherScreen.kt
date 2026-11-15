@@ -1,5 +1,6 @@
 package com.wusper.zeyao.ui.other
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
@@ -38,6 +41,7 @@ fun OtherScreen(
     currentProviderId: String,
     currentLanguage: AppLanguage,
     onBack: () -> Unit,
+    onOpenModelParams: () -> Unit,
     onReconfigureKey: () -> Unit,
     onTestUrl: (String) -> Unit,
     onLanguageChange: (AppLanguage) -> Unit,
@@ -74,6 +78,22 @@ fun OtherScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(12.dp))
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onOpenModelParams)
+                    .padding(vertical = 10.dp),
+            ) {
+                Text(stringResource(R.string.model_and_params), style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    stringResource(R.string.model_and_params_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(16.dp))
             PrimaryButton(stringResource(R.string.reconfigure_key), onClick = onReconfigureKey)
             Spacer(Modifier.height(36.dp))

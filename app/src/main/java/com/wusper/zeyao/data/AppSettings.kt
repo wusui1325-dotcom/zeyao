@@ -55,12 +55,31 @@ data class AppSettings(
     val antiFraudEnabled: Boolean = false,
     /** Extract facts and search each one before summarizing. */
     val authenticityCheckEnabled: Boolean = false,
-    /** Preferred temperature for summary generation. */
+    /** Preferred temperature for summary generation (擇要模型). */
     val temperature: Double = 1.0,
-    /** Preferred max tokens for summary. */
+    /** Preferred max tokens for summary. Kept for compatibility when summarize intensity is unset. */
     val maxTokens: Int = 1200,
-    /** Comma-separated fallback models for the current provider. Empty = use built-in list. */
+    /** Comma-separated fallback models for the summarize role. Empty = use built-in list. */
     val fallbackModels: String = "",
+    /** Optional override of the search/extract model id (comma-separated fallbacks allowed). */
+    val searchModel: String = "",
+    /** Optional override of the summarize model id. Empty falls back to [fallbackModels]. */
+    val summarizeModel: String = "",
+    /** Optional override of the verify/classify model id. */
+    val verifyModel: String = "",
+    /** Temperature for search/extract. */
+    val searchTemperature: Double = 0.3,
+    /** Temperature for verify/classify. */
+    val verifyTemperature: Double = 0.0,
+    /** Search/extract intensity 1–5. */
+    val searchIntensity: Int = 3,
+    /**
+     * Summarize intensity 1–5. 0 means unset: derive the displayed intensity
+     * from [maxTokens] and keep using the stored token budget at runtime.
+     */
+    val summarizeIntensity: Int = 0,
+    /** Verify/classify intensity 1–5. */
+    val verifyIntensity: Int = 1,
     /** Local anonymous intercept counter for simple stats. */
     val interceptCount: Int = 0,
     /** Optional biometric / device-credential lock for the home screen. Default off. */
