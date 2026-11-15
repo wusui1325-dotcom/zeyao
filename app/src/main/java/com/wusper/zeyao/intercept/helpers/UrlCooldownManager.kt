@@ -7,9 +7,13 @@ import java.util.LinkedHashMap
 /**
  * URL cooldown management extracted from InterceptController (item 37).
  * Uses LRU-style LinkedHashMap for bounded size.
+ *
+ * [elapsedRealtime] is injectable so JVM unit tests do not need to mock
+ * [SystemClock], which is stubbed on the Android unit-test classpath.
  */
 class UrlCooldownManager(
     private val maxSize: Int = 200,
+    private val elapsedRealtime: () -> Long = { SystemClock.elapsedRealtime() },
 ) {
     private val urlCooldownUntil = java.util.Collections.synchronizedMap(
         object : LinkedHashMap<String, Long>(128, 0.75f, true) {
@@ -20,7 +24,7 @@ class UrlCooldownManager(
     )
 
     fun isCooled(url: String, suppressUntil: Long = 0L): Boolean {
-        val now = SystemClock.elapsedRealtime()
+        val now = elapsedRealtime()
         if (now < suppressUntil) return true
         val key = NewsHosts.canonicalUrl(url)
         val exact = urlCooldownUntil[key]
@@ -33,7 +37,7 @@ class UrlCooldownManager(
 
     fun mark(url: String, durationMs: Long) {
         val key = NewsHosts.canonicalUrl(url)
-        urlCooldownUntil[key] = SystemClock.elapsedRealtime() + durationMs
+        urlCooldownUntil[key] = elapsedRealtime() + durationMs
     }
 
     fun clear() = urlCooldownUntil.clear()

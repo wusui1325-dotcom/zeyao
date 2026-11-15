@@ -7,8 +7,8 @@ import android.content.Intent
 import android.widget.Toast
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
@@ -36,14 +36,19 @@ import com.wusper.zeyao.ui.onboarding.OnboardingRoute
 import com.wusper.zeyao.ui.other.OtherScreen
 import com.wusper.zeyao.ui.settings.LaunchableApp
 import com.wusper.zeyao.ui.settings.SettingsScreen
+import com.wusper.zeyao.ui.lock.BiometricGate
+import com.wusper.zeyao.ui.lock.LockScreen
 import com.wusper.zeyao.ui.theme.ZeyaoTheme
 import com.wusper.zeyao.util.SystemChecks
+import android.os.SystemClock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     private var pendingStartVpn = false
+    private var pausedAtElapsed = 0L
+    private var launchedExternal = false
 
     private val vpnPrepare = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
@@ -79,6 +84,41 @@ class MainActivity : ComponentActivity() {
             var isDefaultBrowser by remember { mutableStateOf(BrowserHandoff.isZeyaoDefaultBrowser(this@MainActivity)) }
             var caInstalled by remember { mutableStateOf(false) }
             var resumeTick by remember { mutableStateOf(0) }
+            var lockReady by remember { mutableStateOf(false) }
+            var unlocked by remember { mutableStateOf(false) }
+            var showLock by remember { mutableStateOf(false) }
+
+            LaunchedEffect(Unit) {
+                val current = app.settings.current()
+                if (current.biometricUnlockEnabled) {
+                    unlocked = false
+                    showLock = true
+                } else {
+                    unlocked = true
+                    showLock = false
+                }
+                lockReady = true
+            }
+
+            LaunchedEffect(settings.biometricUnlockEnabled) {
+                if (!lockReady) return@LaunchedEffect
+                if (!settings.biometricUnlockEnabled) {
+                    unlocked = true
+                    showLock = false
+                }
+            }
+
+            LaunchedEffect(showLock, unlocked, lockReady) {
+                if (lockReady && showLock && !unlocked) {
+                    BiometricGate.prompt(
+                        this@MainActivity,
+                        onSuccess = {
+                            unlocked = true
+                            showLock = false
+                        },
+                    )
+                }
+            }
 
             LaunchedEffect(route) {
                 if (route == Route.SETTINGS) {
@@ -120,6 +160,15 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(resumeTick) {
                 vpnReady = SystemChecks.isVpnPrepared(this@MainActivity)
                 accessibilityOn = SystemChecks.isAccessibilityEnabled(this@MainActivity)
+                if (lockReady && settings.biometricUnlockEnabled && unlocked && !launchedExternal) {
+                    if (pausedAtElapsed > 0L &&
+                        SystemClock.elapsedRealtime() - pausedAtElapsed > 60_000L
+                    ) {
+                        unlocked = false
+                        showLock = true
+                    }
+                }
+                launchedExternal = false
             }
 
             ZeyaoTheme(
@@ -128,7 +177,19 @@ class MainActivity : ComponentActivity() {
                 accent = Color(settings.accentColor),
             ) {
                 Surface(Modifier.fillMaxSize()) {
-                    when {
+                    if (!lockReady) {
+                        // Wait for stored biometric setting so the home list is not flashed.
+                    } else if (showLock && !unlocked) {
+                        LockScreen(onUnlock = {
+                            BiometricGate.prompt(
+                                this@MainActivity,
+                                onSuccess = {
+                                    unlocked = true
+                                    showLock = false
+                                },
+                            )
+                        })
+                    } else when {
                         !settings.onboarded || route == Route.RECONFIGURE -> {
                             OnboardingRoute(
                                 initialProviderId = settings.providerId,
@@ -160,12 +221,14 @@ class MainActivity : ComponentActivity() {
                                     scope.launch { handlePersistentToggle(enabled) }
                                 },
                                 onOpenAccessibilitySettings = {
+                                    markExternalLaunch()
                                     startActivity(SystemChecks.accessibilitySettingsIntent())
                                 },
                                 onOpenVpnSettings = { prepareOrStartVpn() },
                                 browsers = browsers,
                                 isDefaultBrowser = isDefaultBrowser,
                                 onRequestDefaultBrowser = {
+                                    markExternalLaunch()
                                     startActivity(BrowserHandoff.requestDefaultBrowserIntent(this@MainActivity))
                                 },
                                 caInstalled = caInstalled,
@@ -204,10 +267,46 @@ class MainActivity : ComponentActivity() {
                         }
                         route == Route.RECORD && openedRecord != null -> {
                             val rec = records.find { it.id == openedRecord!!.id } ?: openedRecord!!
-                            RecordDetailScreen(record = rec, onBack = {
-                                route = Route.MAIN
-                                openedRecord = null
-                            })
+                            RecordDetailScreen(
+                                record = rec,
+                                fontScale = settings.summaryFontScale,
+                                handoffPackage = settings.handoffBrowserPackage,
+                                onBack = {
+                                    route = Route.MAIN
+                                    openedRecord = null
+                                },
+                                onPin = { pinned ->
+                                    scope.launch { app.records.setPinned(rec.id, pinned) }
+                                },
+                                onDelete = {
+                                    scope.launch {
+                                        app.records.delete(rec.id)
+                                        route = Route.MAIN
+                                        openedRecord = null
+                                    }
+                                },
+                                onRegenerate = {
+                                    InterceptController.startOrRefine(
+                                        rec.url,
+                                        rec.title,
+                                        this@MainActivity.packageName,
+                                    )
+                                },
+                                onFontSmaller = {
+                                    scope.launch {
+                                        app.settings.update {
+                                            it.copy(summaryFontScale = (it.summaryFontScale - 0.15f).coerceIn(0.85f, 1.6f))
+                                        }
+                                    }
+                                },
+                                onFontLarger = {
+                                    scope.launch {
+                                        app.settings.update {
+                                            it.copy(summaryFontScale = (it.summaryFontScale + 0.15f).coerceIn(0.85f, 1.6f))
+                                        }
+                                    }
+                                },
+                            )
                         }
                         else -> {
                             MainScreen(
@@ -245,12 +344,21 @@ class MainActivity : ComponentActivity() {
         recreate()
     }
 
+    override fun onPause() {
+        pausedAtElapsed = SystemClock.elapsedRealtime()
+        super.onPause()
+    }
+
     override fun onResume() {
         super.onResume()
         if (pendingStartVpn && SystemChecks.isVpnPrepared(this)) {
             VpnController.start(this)
             pendingStartVpn = false
         }
+    }
+
+    private fun markExternalLaunch() {
+        launchedExternal = true
     }
 
     private suspend fun handleInterceptToggle(enabled: Boolean) {
@@ -275,7 +383,7 @@ class MainActivity : ComponentActivity() {
                 prepareOrStartVpn()
             }
             if (!SystemChecks.isIgnoringBatteryOptimizations(this)) {
-                runCatching { startActivity(SystemChecks.batteryOptimizationIntent(this)) }
+                runCatching { markExternalLaunch(); startActivity(SystemChecks.batteryOptimizationIntent(this)) }
             }
         }
     }
@@ -290,6 +398,7 @@ class MainActivity : ComponentActivity() {
         val prepare = VpnController.prepareIntent(this)
         return if (prepare != null) {
             pendingStartVpn = true
+            markExternalLaunch()
             vpnPrepare.launch(prepare)
             false
         } else {
@@ -318,6 +427,7 @@ class MainActivity : ComponentActivity() {
                     android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     android.net.Uri.parse("package:$packageName"),
                 )
+                markExternalLaunch()
                 startActivity(intent)
             }
             com.wusper.zeyao.intercept.ClickInterceptOverlay.start(this)
@@ -333,6 +443,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         if (Build.VERSION.SDK_INT < 30) {
+            markExternalLaunch()
             runCatching { startActivity(LocalCa.installIntent(this)) }
             Toast.makeText(this, getString(R.string.ca_saved_toast, exported.displayPath), Toast.LENGTH_LONG).show()
             return
@@ -341,6 +452,7 @@ class MainActivity : ComponentActivity() {
             .setTitle(getString(R.string.ca_saved_title))
             .setMessage(getString(R.string.ca_saved_body, exported.displayPath))
             .setPositiveButton(getString(R.string.go_install)) { _, _ ->
+                markExternalLaunch()
                 runCatching { startActivity(LocalCa.installIntent(this)) }
             }
             .setNegativeButton(getString(R.string.later), null)

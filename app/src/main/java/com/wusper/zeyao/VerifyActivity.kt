@@ -155,6 +155,10 @@ class VerifyActivity : ComponentActivity() {
 
     override fun onDestroy() {
         job?.cancel()
+        if (!decided && !isChangingConfigurations) {
+            val url = NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty())
+            if (url.isNotBlank()) InterceptController.releaseDocumentHolds(url)
+        }
         super.onDestroy()
     }
 

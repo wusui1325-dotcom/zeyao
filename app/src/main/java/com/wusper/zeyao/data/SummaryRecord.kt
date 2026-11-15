@@ -15,4 +15,5 @@ data class SummaryRecord(
     val summary: String,
     val createdAt: Long,
     val status: RecordStatus,
+    val pinned: Boolean = false,
 )

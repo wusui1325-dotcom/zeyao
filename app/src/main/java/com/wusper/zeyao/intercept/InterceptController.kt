@@ -48,6 +48,7 @@ data class InterceptSession(
     val decided: Boolean = false,
     val sources: List<com.wusper.zeyao.ai.FactChecker.Source> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
+    val fromCache: Boolean = false,
 )
 
 /**
@@ -58,6 +59,8 @@ object InterceptController {
     private const val DUP_WINDOW_MS = 2_000L
     private const val ENTER_SUPPRESS_MS = 12_000L
     private const val DEFAULT_SITE_COOLDOWN_MS = 10 * 60 * 1000L
+    private const val SESSION_KEEP_MS = 15 * 60 * 1000L
+    private const val SESSION_MAX = 40
 
     @Volatile
     private var siteCooldownMs: Long = DEFAULT_SITE_COOLDOWN_MS
@@ -111,6 +114,9 @@ object InterceptController {
     var caInstalledCached: Boolean = false
         private set
 
+    @Volatile
+    private var skippedHostsCached: Set<String> = emptySet()
+
     fun attach(application: ZeyaoApp) {
         app = application
         runCatching { LocalCa.ensure(application) }
@@ -120,6 +126,7 @@ object InterceptController {
                 interceptArmedCached = app.settings.isInterceptArmed(settings)
                 httpsDecryptCached = settings.httpsDecryptEnabled
                 httpsDecryptNewsOnlyCached = settings.httpsDecryptNewsOnly
+                skippedHostsCached = settings.skippedHosts
                 siteCooldownMs = settings.siteCooldownSeconds.coerceIn(10, 600).toLong() * 1000L
                 ScreenshotBuffer.enabled = settings.imageRecognitionEnabled
                 refreshCaInstalled()
@@ -141,6 +148,9 @@ object InterceptController {
         return host.isBlank() || NewsHosts.isNewsHost(host)
     }
 
+    fun isSkipped(urlOrHost: String): Boolean =
+        NewsHosts.isSkippedHost(urlOrHost, skippedHostsCached)
+
     fun sessionOf(id: String): InterceptSession? = _sessions.value[id]
 
     fun peek(id: String): InterceptSession? = _sessions.value[id]
@@ -159,6 +169,7 @@ object InterceptController {
 
     suspend fun shouldIntercept(url: String, packageName: String?): Boolean {
         if (appUiVisible) return false
+        if (isSkipped(url)) return false
         if (!NewsHosts.isClassifiableUrl(url)) return false
         if (isUrlCooled(url)) return false
         val settings = app.settings.current()
@@ -208,7 +219,7 @@ object InterceptController {
     fun onDecryptedDocument(url: String, connection: HeldConnection): Boolean {
         val wrapped = IdempotentHold(connection)
         val clean = sanitizeUrl(url)
-        if (clean == null || appUiVisible || isUrlCooled(clean)) {
+        if (clean == null || appUiVisible || isUrlCooled(clean) || isSkipped(clean)) {
             wrapped.release()
             return false
         }
@@ -243,6 +254,10 @@ object InterceptController {
             }
             val settings = app.settings.current()
             if (!app.settings.isInterceptArmed(settings) || !app.settings.isAppTargeted(settings, packageName)) {
+                if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
+                return@launch
+            }
+            if (NewsHosts.isSkippedHost(clean, settings.skippedHosts)) {
                 if (handoffIfNotNews) openInBrowser(clean, settings.handoffBrowserPackage)
                 return@launch
             }
@@ -282,7 +297,8 @@ object InterceptController {
     fun allowThrough(url: String) {
         markAllowed(url)
         val host = NewsHosts.hostOf(url).lowercase()
-        hostPassthroughUntil[host] = SystemClock.elapsedRealtime() + siteCooldownMs
+        // Brief host passthrough lets the current page load; article cooldown is URL-level.
+        hostPassthroughUntil[host] = SystemClock.elapsedRealtime() + ENTER_SUPPRESS_MS
         releaseHolds(host)
         openInBrowser(url)
     }
@@ -350,6 +366,7 @@ object InterceptController {
             launchActivity(open.id, if (refined) url else open.url, title.ifBlank { open.title }, packageName, startFrom)
             return
         }
+        pruneSessions()
         val id = UUID.randomUUID().toString()
         val session = InterceptSession(
             id = id,
@@ -379,7 +396,7 @@ object InterceptController {
         val session = _sessions.value[sessionId] ?: return
         updateSession(sessionId) { it.copy(decided = true) }
         markAllowed(session.url)
-        hostPassthroughUntil[session.host.lowercase()] = SystemClock.elapsedRealtime() + siteCooldownMs
+        hostPassthroughUntil[session.host.lowercase()] = SystemClock.elapsedRealtime() + ENTER_SUPPRESS_MS
         releaseHolds(session.host)
         maybeCancelOnExit(sessionId)
         scope.launch(Dispatchers.Main) {
@@ -400,17 +417,29 @@ object InterceptController {
         }
     }
 
+    fun skipSiteAndEnter(sessionId: String) {
+        val session = _sessions.value[sessionId] ?: return
+        val host = NewsHosts.normalizedHost(session.host.ifBlank { session.url })
+        if (host.isNotBlank()) {
+            scope.launch {
+                runCatching {
+                    app.settings.update { current ->
+                        current.copy(skippedHosts = current.skippedHosts + host)
+                    }
+                }
+            }
+        }
+        onEnter(sessionId)
+    }
+
     fun regenerate(
         sessionId: String,
         length: com.wusper.zeyao.data.SummaryLength? = null,
         search: Boolean? = null,
     ) {
         val session = _sessions.value[sessionId] ?: return
-        jobs[sessionId]?.cancel()
-        updateSession(sessionId) { it.copy(summary = "", streaming = true, error = null) }
-        jobs[sessionId] = scope.launch {
-            beginGeneration(sessionId, session.url, session.title, session.host, length, search)
-        }
+        updateSession(sessionId) { it.copy(summary = "", streaming = true, error = null, fromCache = false) }
+        beginGeneration(sessionId, session.url, session.title, session.host, length, search)
     }
 
     fun maybeCancelOnExit(sessionId: String) {
@@ -455,7 +484,7 @@ object InterceptController {
             if ((NewsHosts.isBareHostUrl(workingUrl) || !NewsHosts.isClassifiableUrl(workingUrl)) &&
                 !app.settings.current().interceptAllPages
             ) {
-                fail(id, "尚未取得文章網址，仍可進入或返回")
+                fail(id, errorString(com.wusper.zeyao.R.string.no_article_url_still_enter))
                 return@launch
             }
             var captured = PageCapture.get(workingUrl)
@@ -481,14 +510,14 @@ object InterceptController {
             // Check short-lived cache first
             val cached = SummaryCache.get(workingUrl)
             if (cached != null && lengthOverride == null && searchOverride == null) {
-                updateSession(id) { it.copy(summary = cached, streaming = false, error = null) }
+                updateSession(id) { it.copy(summary = cached, streaming = false, error = null, fromCache = true) }
                 app.records.update(id, summary = cached, title = workingTitle, status = RecordStatus.COMPLETED)
                 return@launch
             }
             ScreenshotBuffer.enabled = settings.imageRecognitionEnabled
             val key = app.secrets.getApiKey(settings.providerId)
             if (key.isNullOrBlank()) {
-                fail(id, "尚未設定 API Key，仍可進入或返回")
+                fail(id, errorString(com.wusper.zeyao.R.string.no_api_key_still_enter))
                 return@launch
             }
             if (article == null && fetched.exceptionOrNull() != null && NewsHosts.isBareHostUrl(workingUrl)) {
@@ -599,7 +628,7 @@ object InterceptController {
                 if (final == null) return@launch
                 val empty = final.summary.isBlank()
                 if (empty) {
-                    fail(id, "摘要失敗，仍可進入或返回")
+                    fail(id, errorString(com.wusper.zeyao.R.string.summary_failed_still_enter))
                 } else {
                     updateSession(id) { it.copy(streaming = false, error = null) }
                     app.records.update(id, summary = final.summary, status = RecordStatus.COMPLETED)
@@ -607,8 +636,8 @@ object InterceptController {
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 val message = when (e) {
-                    is AiInitException -> e.message ?: "摘要失敗，仍可進入或返回"
-                    else -> "摘要失敗，仍可進入或返回"
+                    is AiInitException -> e.message ?: errorString(com.wusper.zeyao.R.string.summary_failed_still_enter)
+                    else -> errorString(com.wusper.zeyao.R.string.summary_failed_still_enter)
                 }
                 fail(id, message)
             }
@@ -712,6 +741,25 @@ object InterceptController {
         if (lastSeenUrlAt.size > 128) {
             lastSeenUrlAt.entries.removeIf { now - it.value > DUP_WINDOW_MS * 8 }
         }
+    }
+
+    private fun errorString(resId: Int): String =
+        com.wusper.zeyao.data.AppLocale.wrap(app).getString(resId)
+
+    private fun pruneSessions() {
+
+        val now = System.currentTimeMillis()
+        _sessions.update { map ->
+            val kept = map.filterValues { session ->
+                session.streaming || !session.decided || now - session.createdAt < SESSION_KEEP_MS
+            }
+            if (kept.size <= SESSION_MAX) kept
+            else kept.entries
+                .sortedByDescending { it.value.createdAt }
+                .take(SESSION_MAX)
+                .associate { it.key to it.value }
+        }
+        jobs.entries.removeIf { (_, job) -> job.isCompleted || job.isCancelled }
     }
 
     private fun sanitizeUrl(url: String): String? {

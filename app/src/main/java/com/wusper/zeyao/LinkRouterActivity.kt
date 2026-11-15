@@ -41,7 +41,9 @@ class LinkRouterActivity : Activity() {
             val resolved = com.wusper.zeyao.data.RedirectResolver.resolve(url)
             val armed = app.settings.isInterceptArmed(settings)
             val cooled = InterceptController.isUrlCooled(resolved)
-            val intercept = armed && !cooled && (settings.interceptAllPages || NewsHosts.isClassifiableUrl(resolved))
+            val skipped = InterceptController.isSkipped(resolved) ||
+                NewsHosts.isSkippedHost(resolved, settings.skippedHosts)
+            val intercept = armed && !cooled && !skipped && (settings.interceptAllPages || NewsHosts.isClassifiableUrl(resolved))
             if (intercept) {
                 if (settings.interceptAllPages && settings.askBeforeSummary) {
                     startActivity(

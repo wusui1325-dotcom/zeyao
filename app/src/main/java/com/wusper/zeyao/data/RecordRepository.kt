@@ -22,6 +22,7 @@ import kotlinx.coroutines.withContext
 class RecordRepository(context: Context) {
     private val file = File(context.applicationContext.filesDir, "recent_records.json")
     private val mutex = Mutex()
+    private val writeMutex = Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _records = MutableStateFlow<List<SummaryRecord>>(emptyList())
     val records: StateFlow<List<SummaryRecord>> = _records.asStateFlow()
@@ -29,6 +30,7 @@ class RecordRepository(context: Context) {
     @Volatile
     private var loaded = false
     private var persistJob: Job? = null
+    private var writeGen = 0
 
     init {
         scope.launch { ensureLoaded() }
@@ -38,7 +40,7 @@ class RecordRepository(context: Context) {
         mutex.withLock {
             ensureLoadedLocked()
             val next = listOf(record) + _records.value.filterNot { it.id == record.id }
-            persistLocked(next.take(MAX), flush = true)
+            persistLocked(next, flush = true)
         }
     }
 
@@ -49,6 +51,7 @@ class RecordRepository(context: Context) {
         status: RecordStatus = RecordStatus.GENERATING,
         summary: String = "",
         id: String = UUID.randomUUID().toString(),
+        pinned: Boolean = false,
     ): SummaryRecord {
         val record = SummaryRecord(
             id = id,
@@ -58,6 +61,7 @@ class RecordRepository(context: Context) {
             summary = summary,
             createdAt = System.currentTimeMillis(),
             status = status,
+            pinned = pinned,
         )
         upsert(record)
         return record
@@ -73,6 +77,7 @@ class RecordRepository(context: Context) {
         title: String? = null,
         url: String? = null,
         status: RecordStatus? = null,
+        pinned: Boolean? = null,
         flush: Boolean = true,
     ) {
         mutex.withLock {
@@ -83,10 +88,22 @@ class RecordRepository(context: Context) {
                     title = title ?: item.title,
                     url = url ?: item.url,
                     status = status ?: item.status,
+                    pinned = pinned ?: item.pinned,
                 )
             }
             persistLocked(next, flush = flush)
         }
+    }
+
+    suspend fun setPinned(id: String, pinned: Boolean) = update(id, pinned = pinned, flush = true)
+
+    suspend fun delete(id: String): SummaryRecord? = mutex.withLock {
+        ensureLoadedLocked()
+        val removed = _records.value.find { it.id == id }
+        if (removed != null) {
+            persistLocked(_records.value.filterNot { it.id == id }, flush = true)
+        }
+        removed
     }
 
     suspend fun get(id: String): SummaryRecord? = mutex.withLock {
@@ -101,44 +118,52 @@ class RecordRepository(context: Context) {
     private suspend fun ensureLoadedLocked() {
         if (loaded) return
         _records.value = withContext(Dispatchers.IO) {
-            runCatching { readUnlocked() }.getOrDefault(emptyList())
+            runCatching { sortRecords(readUnlocked()) }.getOrDefault(emptyList())
         }
         loaded = true
     }
 
     private fun persistLocked(list: List<SummaryRecord>, flush: Boolean) {
-        _records.value = list
+        val sorted = sortRecords(list)
+        _records.value = sorted
+        val gen = ++writeGen
         persistJob?.cancel()
-        if (flush) {
-            persistJob = scope.launch { writeUnlocked(list) }
-        } else {
-            persistJob = scope.launch {
-                delay(DEBOUNCE_MS)
-                writeUnlocked(list)
-            }
+        persistJob = scope.launch {
+            if (!flush) delay(DEBOUNCE_MS)
+            writeIfLatest(sorted, gen)
         }
     }
 
-    private suspend fun writeUnlocked(list: List<SummaryRecord>) {
-        withContext(Dispatchers.IO + NonCancellable) {
-            val arr = JSONArray()
-            list.forEach { r ->
-                arr.put(
-                    JSONObject()
-                        .put("id", r.id)
-                        .put("url", r.url)
-                        .put("title", r.title)
-                        .put("host", r.host)
-                        .put("summary", r.summary)
-                        .put("createdAt", r.createdAt)
-                        .put("status", r.status.name),
-                )
-            }
-            val tmp = File(file.parentFile, file.name + ".tmp")
-            tmp.writeText(arr.toString())
-            if (!tmp.renameTo(file)) {
-                tmp.copyTo(file, overwrite = true)
-                tmp.delete()
+    private fun sortRecords(list: List<SummaryRecord>): List<SummaryRecord> {
+        val pinned = list.filter { it.pinned }.sortedByDescending { it.createdAt }
+        val rest = list.filterNot { it.pinned }.sortedByDescending { it.createdAt }
+        return (pinned + rest).take(MAX)
+    }
+
+    private suspend fun writeIfLatest(list: List<SummaryRecord>, gen: Int) {
+        writeMutex.withLock {
+            if (gen < writeGen) return
+            withContext(Dispatchers.IO + NonCancellable) {
+                val arr = JSONArray()
+                list.forEach { r ->
+                    arr.put(
+                        JSONObject()
+                            .put("id", r.id)
+                            .put("url", r.url)
+                            .put("title", r.title)
+                            .put("host", r.host)
+                            .put("summary", r.summary)
+                            .put("createdAt", r.createdAt)
+                            .put("status", r.status.name)
+                            .put("pinned", r.pinned),
+                    )
+                }
+                val tmp = File(file.parentFile, file.name + ".tmp")
+                tmp.writeText(arr.toString())
+                if (!tmp.renameTo(file)) {
+                    tmp.copyTo(file, overwrite = true)
+                    tmp.delete()
+                }
             }
         }
     }
@@ -159,6 +184,7 @@ class RecordRepository(context: Context) {
                         createdAt = o.optLong("createdAt"),
                         status = runCatching { RecordStatus.valueOf(o.optString("status")) }
                             .getOrDefault(RecordStatus.COMPLETED),
+                        pinned = o.optBoolean("pinned", false),
                     ),
                 )
             }

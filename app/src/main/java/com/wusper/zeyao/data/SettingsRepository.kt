@@ -61,6 +61,12 @@ class SettingsRepository(private val context: Context) {
             prefs[INTERCEPT_COUNT] = next.interceptCount
             prefs[BIOMETRIC] = next.biometricUnlockEnabled
             prefs[HIGH_CONTRAST] = next.themeStyle == ThemeStyle.HIGH_CONTRAST
+            prefs[SKIPPED_HOSTS] = next.skippedHosts
+                .map { NewsHosts.normalizedHost(it) }
+                .filter { it.isNotBlank() }
+                .sorted()
+                .joinToString("\n")
+            prefs[FONT_SCALE] = next.summaryFontScale.coerceIn(0.85f, 1.6f)
             AppLocale.persist(context, next.language)
         }
     }
@@ -138,6 +144,8 @@ class SettingsRepository(private val context: Context) {
         interceptCount = this[INTERCEPT_COUNT] ?: 0,
         biometricUnlockEnabled = this[BIOMETRIC] ?: false,
         highContrastEnabled = this[HIGH_CONTRAST] ?: false,
+        skippedHosts = this[SKIPPED_HOSTS].orEmpty().split('\n').map { NewsHosts.normalizedHost(it) }.filter { it.isNotBlank() }.toSet(),
+        summaryFontScale = (this[FONT_SCALE] ?: 1f).coerceIn(0.85f, 1.6f),
     )
 
     private companion object {
@@ -175,5 +183,7 @@ class SettingsRepository(private val context: Context) {
         val INTERCEPT_COUNT = intPreferencesKey("intercept_count")
         val BIOMETRIC = booleanPreferencesKey("biometric_unlock")
         val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
+        val SKIPPED_HOSTS = stringPreferencesKey("skipped_hosts")
+        val FONT_SCALE = floatPreferencesKey("summary_font_scale")
     }
 }

@@ -45,18 +45,28 @@ fun InterceptScreen(
     session: InterceptSession,
     buttonPosition: EnterButtonPosition,
     searchEnabled: Boolean,
+    fontScale: Float,
     onBack: () -> Unit,
     onEnter: () -> Unit,
     onShorter: () -> Unit,
     onLonger: () -> Unit,
     onRetry: () -> Unit,
     onToggleSearch: (Boolean) -> Unit,
+    onCopy: () -> Unit,
+    onSkipSite: () -> Unit,
+    onFontSmaller: () -> Unit,
+    onFontLarger: () -> Unit,
 ) {
     var showSources by remember { mutableStateOf(false) }
+    var confirmSkip by remember { mutableStateOf(false) }
     val host = session.host.ifBlank {
         runCatching { Uri.parse(session.url).host.orEmpty() }.getOrDefault("")
     }
     val title = session.title.ifBlank { host.ifBlank { session.url } }
+    val bodyStyle = MaterialTheme.typography.bodyLarge.copy(
+        fontSize = MaterialTheme.typography.bodyLarge.fontSize * fontScale,
+        lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * fontScale,
+    )
     Column(
         Modifier
             .fillMaxSize()
@@ -77,6 +87,14 @@ fun InterceptScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (session.fromCache && session.summary.isNotBlank()) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.from_cache),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
         Spacer(Modifier.height(20.dp))
         Box(
             Modifier
@@ -92,7 +110,7 @@ fun InterceptScreen(
                 }
                 Text(
                     text = body,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = bodyStyle,
                 )
                 if (session.error != null && session.summary.isNotBlank()) {
                     Spacer(Modifier.height(16.dp))
@@ -105,7 +123,6 @@ fun InterceptScreen(
                 Spacer(Modifier.height(24.dp))
             }
         }
-        // Action row: shorter / longer / retry / search
         FlowRow(
             Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -114,9 +131,15 @@ fun InterceptScreen(
             SmallAction(stringResource(R.string.shorter), onShorter)
             SmallAction(stringResource(R.string.longer), onLonger)
             SmallAction(stringResource(R.string.retry), onRetry)
+            if (session.summary.isNotBlank()) {
+                SmallAction(stringResource(R.string.copy), onCopy)
+            }
+            SmallAction(stringResource(R.string.font_smaller), onFontSmaller)
+            SmallAction(stringResource(R.string.font_larger), onFontLarger)
             if (session.sources.isNotEmpty()) {
                 SmallAction(stringResource(R.string.sources_count, session.sources.size), { showSources = true })
             }
+            SmallAction(stringResource(R.string.skip_this_site), { confirmSkip = true })
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stringResource(R.string.search_news),
@@ -152,6 +175,22 @@ fun InterceptScreen(
             },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = { showSources = false }) { Text(stringResource(R.string.close)) }
+            },
+        )
+    }
+    if (confirmSkip) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmSkip = false },
+            title = { Text(stringResource(R.string.skip_this_site)) },
+            text = { Text(stringResource(R.string.skip_this_site_hint)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    confirmSkip = false
+                    onSkipSite()
+                }) { Text(stringResource(R.string.ok)) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { confirmSkip = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }

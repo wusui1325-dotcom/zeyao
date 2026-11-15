@@ -63,10 +63,14 @@ data class AppSettings(
     val fallbackModels: String = "",
     /** Local anonymous intercept counter for simple stats. */
     val interceptCount: Int = 0,
-    /** Enable biometric unlock for API key access. */
+    /** Optional biometric / device-credential lock for the home screen. Default off. */
     val biometricUnlockEnabled: Boolean = false,
     /** High contrast mode for accessibility. */
     val highContrastEnabled: Boolean = false,
+    /** Hosts the user asked never to intercept again (www stripped, lowercase). */
+    val skippedHosts: Set<String> = emptySet(),
+    /** Summary body text scale on the 擇要 page and record detail. */
+    val summaryFontScale: Float = 1f,
 )
 
 enum class SummaryLength { SHORT, NORMAL, LONG }

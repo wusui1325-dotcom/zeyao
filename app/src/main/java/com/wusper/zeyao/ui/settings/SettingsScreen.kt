@@ -59,7 +59,9 @@ import com.wusper.zeyao.ui.components.TopAction
 import com.wusper.zeyao.ui.settings.sections.InterceptSection
 import com.wusper.zeyao.ui.settings.sections.HttpsSection
 import com.wusper.zeyao.ui.settings.sections.GenerationParamsSection
+import com.wusper.zeyao.ui.lock.BiometricGate
 import com.wusper.zeyao.ui.settings.sections.StatsSection
+import android.widget.Toast
 import java.util.Locale
 
 data class LaunchableApp(
@@ -187,6 +189,38 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+
+            Spacer(Modifier.height(8.dp))
+            SectionLabel(stringResource(R.string.section_skipped))
+            if (settings.skippedHosts.isEmpty()) {
+                Text(
+                    stringResource(R.string.no_skipped_sites),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                settings.skippedHosts.sorted().forEach { host ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(host, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        Text(
+                            stringResource(R.string.remove_skipped_site),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    onUpdate { it.copy(skippedHosts = it.skippedHosts - host) }
+                                }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(8.dp))
@@ -330,6 +364,21 @@ fun SettingsScreen(
                     onUpdate { it.copy(summaryLength = next) }
                 },
             )
+            var fontScale by remember(settings.summaryFontScale) { mutableStateOf(settings.summaryFontScale) }
+            Text(
+                stringResource(R.string.font_size_current, String.format(Locale.US, "%.2f", fontScale)),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Slider(
+                value = fontScale,
+                onValueChange = { fontScale = it },
+                onValueChangeFinished = {
+                    onUpdate { it.copy(summaryFontScale = fontScale.coerceIn(0.85f, 1.6f)) }
+                },
+                valueRange = 0.85f..1.6f,
+                steps = 4,
+            )
+
             SettingSwitch(
                 title = stringResource(R.string.anti_fraud),
                 subtitle = stringResource(R.string.anti_fraud_hint),
@@ -384,6 +433,19 @@ fun SettingsScreen(
             Spacer(Modifier.height(8.dp))
             GenerationParamsSection(settings, onUpdate)
             StatsSection(settings)
+            SectionLabel(stringResource(R.string.section_privacy))
+            SettingSwitch(
+                title = stringResource(R.string.biometric_lock),
+                subtitle = stringResource(R.string.biometric_lock_hint),
+                checked = settings.biometricUnlockEnabled,
+                onChecked = { enabled ->
+                    if (enabled && !BiometricGate.canAuthenticate(context)) {
+                        Toast.makeText(context, context.getString(R.string.biometric_unavailable), Toast.LENGTH_LONG).show()
+                    } else {
+                        onUpdate { it.copy(biometricUnlockEnabled = enabled) }
+                    }
+                },
+            )
             SettingSwitch(
                 title = stringResource(R.string.continue_on_exit),
                 subtitle = stringResource(R.string.continue_on_exit_hint),

@@ -139,6 +139,115 @@ object NewsHosts {
         "ocid", "yclid", "msclkid", "sref",
     )
 
+
+    data class ParsedUrl(
+        val scheme: String,
+        val host: String,
+        val path: String,
+        val query: String,
+        val raw: String,
+    ) {
+        fun queryParameter(name: String): String? {
+            val want = name.lowercase(Locale.ROOT)
+            for ((n, v) in queryParameters()) {
+                if (n.lowercase(Locale.ROOT) == want) return v
+            }
+            return null
+        }
+
+        fun queryParameters(): List<Pair<String, String>> {
+            if (query.isBlank()) return emptyList()
+            return query.split('&').mapNotNull { part ->
+                if (part.isBlank()) return@mapNotNull null
+                val eq = part.indexOf('=')
+                val name = if (eq < 0) part else part.substring(0, eq)
+                val value = if (eq < 0) "" else part.substring(eq + 1)
+                if (name.isBlank()) null else decodeComponent(name) to decodeComponent(value)
+            }
+        }
+    }
+
+    /**
+     * Manual http(s) URL parse so canonicalization works in JVM unit tests
+     * where [android.net.Uri] query helpers are stubbed.
+     */
+    fun parseHttpUrl(url: String): ParsedUrl? {
+        val trimmed = url.trim()
+        val schemeSep = trimmed.indexOf("://")
+        if (schemeSep <= 0) return null
+        val scheme = trimmed.substring(0, schemeSep).lowercase(Locale.ROOT)
+        if (scheme != "http" && scheme != "https") return null
+        var rest = trimmed.substring(schemeSep + 3)
+        val hash = rest.indexOf('#')
+        if (hash >= 0) rest = rest.substring(0, hash)
+        val at = rest.indexOf('@')
+        val firstCut = rest.indexOfFirst { it == '/' || it == '?' }
+        if (at >= 0 && (firstCut < 0 || at < firstCut)) {
+            rest = rest.substring(at + 1)
+        }
+        val hostEnd = rest.indexOfFirst { it == '/' || it == '?' }.let { if (it < 0) rest.length else it }
+        if (hostEnd == 0) return null
+        val hostPort = rest.substring(0, hostEnd)
+        val host = if (hostPort.startsWith("[")) {
+            val end = hostPort.indexOf(']')
+            if (end < 0) return null
+            hostPort.substring(0, end + 1)
+        } else {
+            hostPort.substringBefore(':')
+        }
+        if (host.isBlank()) return null
+        val afterHost = rest.substring(hostEnd)
+        val q = afterHost.indexOf('?')
+        val path = if (q < 0) afterHost else afterHost.substring(0, q)
+        val query = if (q < 0) "" else afterHost.substring(q + 1)
+        return ParsedUrl(scheme, host, path, query, trimmed)
+    }
+
+    fun normalizedHost(hostOrUrl: String): String {
+        val raw = hostOrUrl.trim()
+        val host = if ("://" in raw || '/' in raw || '?' in raw) {
+            parseHttpUrl(if ("://" in raw) raw else "https://$raw")?.host ?: hostOf(raw)
+        } else {
+            raw
+        }
+        var h = host.lowercase(Locale.ROOT).trim().trimEnd('.')
+        if (h.startsWith("www.")) h = h.removePrefix("www.")
+        return h
+    }
+
+    fun isSkippedHost(hostOrUrl: String, skipped: Set<String>): Boolean {
+        val host = normalizedHost(hostOrUrl)
+        if (host.isBlank() || skipped.isEmpty()) return false
+        return skipped.any { entry ->
+            val s = normalizedHost(entry)
+            s.isNotBlank() && (host == s || host.endsWith(".$s"))
+        }
+    }
+
+    private fun decodeComponent(value: String): String =
+        runCatching { java.net.URLDecoder.decode(value.replace("+", "%2B"), Charsets.UTF_8.name()) }
+            .getOrDefault(value)
+
+    private fun unwrapTarget(
+        host: String,
+        path: String,
+        queryParameter: (String) -> String?,
+        rawQuery: String?,
+    ): String? = when {
+        (host == "google.com" || host.endsWith(".google.com")) &&
+            (path == "/url" || path == "/url/" || path == "/news/url") ->
+            queryParameter("q") ?: queryParameter("url") ?: queryParameter("u")
+        host == "share.google" || host.endsWith(".share.google") ->
+            queryParameter("url") ?: queryParameter("q")
+        host.endsWith("facebook.com") && (path.contains("/l.php") || path == "/l.php") ->
+            queryParameter("u")
+        host.endsWith("instagram.com") && path.contains("/l.php") ->
+            queryParameter("u")
+        host == "href.li" ->
+            rawQuery?.let { q -> if (q.startsWith("http")) q else null }
+        else -> null
+    }
+
     /**
      * Unwrap one or two common redirectors (Google, Facebook, etc.) so the
      * real article URL can be judged and summarised.
@@ -146,22 +255,22 @@ object NewsHosts {
     fun unwrapUrl(url: String): String {
         var current = url.trim()
         repeat(3) {
-            val uri = runCatching { Uri.parse(current) }.getOrNull() ?: return current
-            val host = uri.host.orEmpty().lowercase(Locale.ROOT)
-            val path = uri.path.orEmpty().lowercase(Locale.ROOT)
-            val next = when {
-                (host == "google.com" || host.endsWith(".google.com")) &&
-                    (path == "/url" || path == "/url/" || path == "/news/url") ->
-                    uri.getQueryParameter("q") ?: uri.getQueryParameter("url") ?: uri.getQueryParameter("u")
-                host == "share.google" || host.endsWith(".share.google") ->
-                    uri.getQueryParameter("url") ?: uri.getQueryParameter("q")
-                host.endsWith("facebook.com") && (path.contains("/l.php") || path == "/l.php") ->
-                    uri.getQueryParameter("u")
-                host.endsWith("instagram.com") && path.contains("/l.php") ->
-                    uri.getQueryParameter("u")
-                host == "href.li" ->
-                    uri.query?.let { q -> if (q.startsWith("http")) q else null }
-                else -> null
+            val parsed = parseHttpUrl(current)
+            val next = if (parsed != null) {
+                unwrapTarget(
+                    parsed.host.lowercase(Locale.ROOT),
+                    parsed.path.lowercase(Locale.ROOT),
+                    parsed::queryParameter,
+                    parsed.query,
+                )
+            } else {
+                val uri = runCatching { Uri.parse(current) }.getOrNull() ?: return current
+                unwrapTarget(
+                    uri.host.orEmpty().lowercase(Locale.ROOT),
+                    uri.path.orEmpty().lowercase(Locale.ROOT),
+                    { name -> uri.getQueryParameter(name) },
+                    uri.query,
+                )
             }
             if (next.isNullOrBlank() || next == current) return current
             current = next
@@ -243,18 +352,18 @@ object NewsHosts {
 
     fun canonicalUrl(url: String): String {
         val resolved = unwrapUrl(url)
-        val uri = runCatching { Uri.parse(resolved) }.getOrNull() ?: return resolved.lowercase(Locale.ROOT)
-        var host = uri.host.orEmpty().lowercase(Locale.ROOT)
+        val parsed = parseHttpUrl(resolved)
+        if (parsed == null) return resolved.lowercase(Locale.ROOT)
+        var host = parsed.host.lowercase(Locale.ROOT)
         if (host.startsWith("www.")) host = host.removePrefix("www.")
-        var path = uri.path.orEmpty().ifEmpty { "/" }
+        var path = parsed.path.ifEmpty { "/" }
         if (path.length > 1) path = path.trimEnd('/')
-        val kept = uri.queryParameterNames
-            .filter { it.lowercase(Locale.ROOT) !in TRACKING_PARAMS }
-            .sorted()
-            .mapNotNull { name ->
-                val value = uri.getQueryParameter(name) ?: return@mapNotNull null
-                if (value.isBlank()) null else "$name=$value"
+        val kept = parsed.queryParameters()
+            .filter { (name, value) ->
+                name.lowercase(Locale.ROOT) !in TRACKING_PARAMS && value.isNotBlank()
             }
+            .sortedBy { it.first.lowercase(Locale.ROOT) }
+            .map { (name, value) -> "$name=$value" }
         return buildString {
             append("https://")
             append(host)
@@ -271,19 +380,23 @@ object NewsHosts {
         val ca = canonicalUrl(a)
         val cb = canonicalUrl(b)
         if (ca == cb) return true
-        // Stronger slug / trailing-segment match (item 8)
         val shorter = if (ca.length <= cb.length) ca else cb
         val longer = if (ca.length <= cb.length) cb else ca
-        if (longer.startsWith(shorter) && (longer.length == shorter.length || longer[shorter.length] == '/' || longer[shorter.length] == '?')) {
-            return true
-        }
-        // Also treat differing trailing numeric or date slugs as same article when host+path prefix match
-        val hostPathA = ca.substringBefore('?').substringBeforeLast('/')
-        val hostPathB = cb.substringBefore('?').substringBeforeLast('/')
-        return hostPathA.length > 12 && hostPathA == hostPathB
+        if (longer.length == shorter.length) return false
+        val boundary = longer[shorter.length]
+        if (!longer.startsWith(shorter) || (boundary != '/' && boundary != '?')) return false
+        // Prefix match is only for trailing variants of the same article
+        // (/slug vs /slug/amp), not sibling articles that share a parent path.
+        val shorterPath = shorter.substringAfter("://").substringAfter('/', missingDelimiterValue = "")
+            .substringBefore('?')
+        val segments = shorterPath.split('/').filter { it.isNotBlank() }
+        if (segments.size >= 2) return true
+        val last = segments.lastOrNull().orEmpty()
+        return last.length >= 8 || last.any { it.isDigit() } || '-' in last
     }
 
     fun hostOf(url: String): String {
+        parseHttpUrl(url)?.let { return it.host }
         return runCatching { Uri.parse(url).host.orEmpty() }.getOrDefault("")
     }
 }

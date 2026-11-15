@@ -1,8 +1,11 @@
 package com.wusper.zeyao
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -74,6 +77,7 @@ class InterceptActivity : ComponentActivity() {
                         session = session,
                         buttonPosition = settings.enterButtonPosition,
                         searchEnabled = settings.searchNewsEnabled,
+                        fontScale = settings.summaryFontScale,
                         onBack = { decideBack(session.id) },
                         onEnter = { decideEnter(session.id) },
                         onShorter = {
@@ -89,6 +93,14 @@ class InterceptActivity : ComponentActivity() {
                             scope.launch {
                                 app.settings.update { it.copy(searchNewsEnabled = enabled) }
                             }
+                        },
+                        onCopy = { copySummary(session) },
+                        onSkipSite = { decideSkip(session.id) },
+                        onFontSmaller = {
+                            scope.launch { adjustFont(-0.15f) }
+                        },
+                        onFontLarger = {
+                            scope.launch { adjustFont(0.15f) }
                         },
                     )
                 }
@@ -106,6 +118,25 @@ class InterceptActivity : ComponentActivity() {
         InterceptController.onEnter(id)
         finish()
         overridePendingTransition(0, 0)
+    }
+
+    private fun decideSkip(id: String) {
+        InterceptController.skipSiteAndEnter(id)
+        finish()
+        overridePendingTransition(0, 0)
+    }
+
+    private fun copySummary(session: InterceptSession) {
+        val text = session.summary.ifBlank { session.url }
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard?.setPrimaryClip(ClipData.newPlainText(getString(R.string.app_name), text))
+        Toast.makeText(this, getString(R.string.copied), Toast.LENGTH_SHORT).show()
+    }
+
+    private suspend fun adjustFont(delta: Float) {
+        ZeyaoApp.instance.settings.update {
+            it.copy(summaryFontScale = (it.summaryFontScale + delta).coerceIn(0.85f, 1.6f))
+        }
     }
 
     companion object {
