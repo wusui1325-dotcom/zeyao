@@ -29,6 +29,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import com.wusper.zeyao.R
 
 @Composable
 fun BrandMark(modifier: Modifier = Modifier, small: Boolean = false) {
@@ -43,7 +45,7 @@ fun BrandMark(modifier: Modifier = Modifier, small: Boolean = false) {
         )
         Spacer(Modifier.height(if (small) 10.dp else 16.dp))
         Text(
-            text = "擇要",
+            text = stringResource(R.string.app_name),
             style = if (small) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.displayMedium,
             color = colors.onBackground,
             fontFamily = FontFamily.Serif,

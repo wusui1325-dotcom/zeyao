@@ -1,5 +1,6 @@
 package com.wusper.zeyao
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -14,6 +15,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
+import com.wusper.zeyao.data.AppLocale
 import com.wusper.zeyao.data.AppSettings
 import com.wusper.zeyao.data.NewsHosts
 import com.wusper.zeyao.intercept.InterceptController
@@ -24,6 +26,10 @@ import kotlinx.coroutines.launch
 
 class InterceptActivity : ComponentActivity() {
     private var sessionId: String = ""
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,9 +60,8 @@ class InterceptActivity : ComponentActivity() {
             val app = ZeyaoApp.instance
             val scope = rememberCoroutineScope()
             val settings by app.settings.settings.collectAsState(initial = AppSettings())
-            val flow = remember(sessionId) { InterceptController.sessionFlow(sessionId) }
-            val live by flow.collectAsState()
-            val session = live ?: InterceptController.peek(sessionId) ?: fallback
+            val sessions by InterceptController.sessions.collectAsState()
+            val session = sessions[sessionId] ?: InterceptController.peek(sessionId) ?: fallback
 
             ZeyaoTheme(
                 themeStyle = settings.themeStyle,

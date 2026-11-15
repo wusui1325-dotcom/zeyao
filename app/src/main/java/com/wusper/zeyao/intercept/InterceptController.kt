@@ -55,7 +55,6 @@ data class InterceptSession(
  * Generation runs in the application scope so 「退出後繼續生成」 can finish after the page closes.
  */
 object InterceptController {
-    private const val COOLDOWN_MS = 3 * 60 * 1000L
     private const val DUP_WINDOW_MS = 2_000L
     private const val ENTER_SUPPRESS_MS = 12_000L
     private const val DEFAULT_SITE_COOLDOWN_MS = 10 * 60 * 1000L
@@ -122,6 +121,7 @@ object InterceptController {
                 httpsDecryptCached = settings.httpsDecryptEnabled
                 httpsDecryptNewsOnlyCached = settings.httpsDecryptNewsOnly
                 siteCooldownMs = settings.siteCooldownSeconds.coerceIn(10, 600).toLong() * 1000L
+                ScreenshotBuffer.enabled = settings.imageRecognitionEnabled
                 refreshCaInstalled()
             }
         }
@@ -141,13 +141,7 @@ object InterceptController {
         return host.isBlank() || NewsHosts.isNewsHost(host)
     }
 
-    fun sessionFlow(id: String): StateFlow<InterceptSession?> {
-        val flow = MutableStateFlow(_sessions.value[id])
-        scope.launch {
-            sessions.collect { flow.value = it[id] }
-        }
-        return flow
-    }
+    fun sessionOf(id: String): InterceptSession? = _sessions.value[id]
 
     fun peek(id: String): InterceptSession? = _sessions.value[id]
 
@@ -269,6 +263,7 @@ object InterceptController {
                 return@launch
             }
             val now = SystemClock.elapsedRealtime()
+            pruneTransientMaps(now)
             val last = lastSeenUrlAt.put(normalizeUrl(clean), now)
             if (last != null && now - last < DUP_WINDOW_MS) return@launch
             val cached = NewsClassifier.cached(NewsHosts.canonicalUrl(clean))
@@ -372,6 +367,9 @@ object InterceptController {
                 status = RecordStatus.GENERATING,
                 id = id,
             )
+            runCatching {
+                app.settings.update { it.copy(interceptCount = it.interceptCount + 1) }
+            }
         }
         launchActivity(id, url, session.title, packageName, startFrom)
         beginGeneration(id, url, session.title, host)
@@ -437,12 +435,6 @@ object InterceptController {
         lengthOverride: com.wusper.zeyao.data.SummaryLength? = null,
         searchOverride: Boolean? = null,
     ) {
-        // Simple anonymous counter (item 49)
-        scope.launch {
-            runCatching {
-                app.settings.update { it.copy(interceptCount = it.interceptCount + 1) }
-            }
-        }
         jobs[id]?.cancel()
         jobs[id] = scope.launch {
             // If we only have a bare host, wait briefly for accessibility to supply the path.
@@ -596,7 +588,7 @@ object InterceptController {
                         snapshot = next
                         map + (id to next)
                     }
-                    snapshot?.let { app.records.update(id, summary = it.summary, title = it.title) }
+                    snapshot?.let { app.records.update(id, summary = it.summary, title = it.title, flush = false) }
                 }
                 // Cache successful result
                 val finalSession = _sessions.value[id]
@@ -711,6 +703,15 @@ object InterceptController {
 
     private fun rejectHolds(host: String) {
         holds.remove(host.lowercase())?.forEach { runCatching { it.reject() } }
+    }
+
+    private fun pruneTransientMaps(now: Long) {
+        if (hostPassthroughUntil.size > 64) {
+            hostPassthroughUntil.entries.removeIf { it.value <= now }
+        }
+        if (lastSeenUrlAt.size > 128) {
+            lastSeenUrlAt.entries.removeIf { now - it.value > DUP_WINDOW_MS * 8 }
+        }
     }
 
     private fun sanitizeUrl(url: String): String? {

@@ -2,6 +2,8 @@ package com.wusper.zeyao.ui.intercept
 
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,6 +39,7 @@ import com.wusper.zeyao.R
 import com.wusper.zeyao.data.EnterButtonPosition
 import com.wusper.zeyao.intercept.InterceptSession
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun InterceptScreen(
     session: InterceptSession,
@@ -84,7 +87,7 @@ fun InterceptScreen(
             Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
                 val body = when {
                     session.error != null && session.summary.isBlank() -> session.error
-                    session.summary.isBlank() && session.streaming -> "正在擷取與摘要…（通常 5–15 秒）"
+                    session.summary.isBlank() && session.streaming -> stringResource(R.string.extracting_wait)
                     else -> session.summary
                 }
                 Text(
@@ -103,18 +106,17 @@ fun InterceptScreen(
             }
         }
         // Action row: shorter / longer / retry / search
-        Row(
+        FlowRow(
             Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            SmallAction("→更短←", onShorter)
-            SmallAction("更←→長", onLonger)
+            SmallAction(stringResource(R.string.shorter), onShorter)
+            SmallAction(stringResource(R.string.longer), onLonger)
             SmallAction(stringResource(R.string.retry), onRetry)
             if (session.sources.isNotEmpty()) {
-                SmallAction("來源 ${session.sources.size}", { showSources = true })
+                SmallAction(stringResource(R.string.sources_count, session.sources.size), { showSources = true })
             }
-            Spacer(Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stringResource(R.string.search_news),
@@ -133,7 +135,7 @@ fun InterceptScreen(
     if (showSources) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showSources = false },
-            title = { Text("來源 ${session.sources.size}") },
+            title = { Text(stringResource(R.string.sources_count, session.sources.size)) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     session.sources.forEachIndexed { i, s ->
@@ -149,7 +151,7 @@ fun InterceptScreen(
                 }
             },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = { showSources = false }) { Text("關閉") }
+                androidx.compose.material3.TextButton(onClick = { showSources = false }) { Text(stringResource(R.string.close)) }
             },
         )
     }
@@ -223,11 +225,12 @@ private fun RowScope.PairButtons(
 
 @Composable
 private fun EnterButton(onClick: () -> Unit, modifier: Modifier) {
+    val enterCd = stringResource(R.string.cd_enter_article)
     Button(
         onClick = onClick,
         modifier = modifier
             .height(52.dp)
-            .semantics { contentDescription = "進入原文" },
+            .semantics { contentDescription = enterCd },
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -239,11 +242,12 @@ private fun EnterButton(onClick: () -> Unit, modifier: Modifier) {
 
 @Composable
 private fun BackButton(onClick: () -> Unit, modifier: Modifier) {
+    val backCd = stringResource(R.string.cd_back_page)
     OutlinedButton(
         onClick = onClick,
         modifier = modifier
             .height(52.dp)
-            .semantics { contentDescription = "返回上一頁" },
+            .semantics { contentDescription = backCd },
     ) {
         Text(stringResource(R.string.back), style = MaterialTheme.typography.titleMedium)
     }

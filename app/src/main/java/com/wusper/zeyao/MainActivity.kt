@@ -2,6 +2,7 @@ package com.wusper.zeyao
 
 import android.Manifest
 import android.app.AlertDialog
+import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import android.os.Build
@@ -22,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
+import com.wusper.zeyao.data.AppLocale
 import com.wusper.zeyao.data.AppSettings
 import com.wusper.zeyao.data.BrowserHandoff
 import com.wusper.zeyao.data.SummaryRecord
@@ -55,6 +57,10 @@ class MainActivity : ComponentActivity() {
     private val notificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { /* Notification is optional; intercept still works. */ }
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -127,7 +133,16 @@ class MainActivity : ComponentActivity() {
                             OnboardingRoute(
                                 initialProviderId = settings.providerId,
                                 reconfigure = route == Route.RECONFIGURE || settings.onboarded,
-                                onFinished = { route = Route.MAIN },
+                                onFinished = {
+                                    val lang = settings.language
+                                    val current = resources.configuration.locales[0]?.toLanguageTag().orEmpty()
+                                    if (current.startsWith(lang.tag, ignoreCase = true)) {
+                                        route = Route.MAIN
+                                    } else {
+                                        AppLocale.apply(this@MainActivity, lang)
+                                        recreate()
+                                    }
+                                },
                             )
                         }
                         route == Route.SETTINGS -> {
@@ -188,7 +203,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         route == Route.RECORD && openedRecord != null -> {
-                            val rec = openedRecord!!
+                            val rec = records.find { it.id == openedRecord!!.id } ?: openedRecord!!
                             RecordDetailScreen(record = rec, onBack = {
                                 route = Route.MAIN
                                 openedRecord = null
@@ -226,12 +241,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyLanguage(lang: com.wusper.zeyao.data.AppLanguage) {
-        val locale = java.util.Locale.forLanguageTag(lang.tag)
-        java.util.Locale.setDefault(locale)
-        val config = android.content.res.Configuration(resources.configuration)
-        config.setLocale(locale)
-        @Suppress("DEPRECATION")
-        resources.updateConfiguration(config, resources.displayMetrics)
+        AppLocale.apply(this, lang)
         recreate()
     }
 
@@ -303,7 +313,7 @@ class MainActivity : ComponentActivity() {
         app.settings.setClickInterceptEnabled(enabled)
         if (enabled) {
             if (!android.provider.Settings.canDrawOverlays(this)) {
-                Toast.makeText(this, "請先允許懸浮窗權限", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.overlay_permission_toast), Toast.LENGTH_LONG).show()
                 val intent = Intent(
                     android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     android.net.Uri.parse("package:$packageName"),
@@ -319,22 +329,21 @@ class MainActivity : ComponentActivity() {
     private fun installZeyaoCa() {
         LocalCa.ensure(this)
         val exported = runCatching { LocalCa.exportToDownloads(this) }.getOrElse { e ->
-            Toast.makeText(this, e.message ?: "無法寫入下載資料夾", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, e.message ?: getString(R.string.ca_export_failed), Toast.LENGTH_LONG).show()
             return
         }
         if (Build.VERSION.SDK_INT < 30) {
             runCatching { startActivity(LocalCa.installIntent(this)) }
-            Toast.makeText(this, "憑證已存到${exported.displayPath}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.ca_saved_toast, exported.displayPath), Toast.LENGTH_LONG).show()
             return
         }
-        val message = "檔案在「" + exported.displayPath + "」。\n\n請到「設定 → 安全性 → 加密與憑證 → 安裝憑證 → CA 憑證」，選這個檔。"
         AlertDialog.Builder(this)
-            .setTitle("已存到下載資料夾")
-            .setMessage(message)
-            .setPositiveButton("前往安裝") { _, _ ->
+            .setTitle(getString(R.string.ca_saved_title))
+            .setMessage(getString(R.string.ca_saved_body, exported.displayPath))
+            .setPositiveButton(getString(R.string.go_install)) { _, _ ->
                 runCatching { startActivity(LocalCa.installIntent(this)) }
             }
-            .setNegativeButton("先不用", null)
+            .setNegativeButton(getString(R.string.later), null)
             .show()
     }
 

@@ -60,7 +60,8 @@ class SettingsRepository(private val context: Context) {
             prefs[FALLBACK_MODELS] = next.fallbackModels
             prefs[INTERCEPT_COUNT] = next.interceptCount
             prefs[BIOMETRIC] = next.biometricUnlockEnabled
-            prefs[HIGH_CONTRAST] = next.highContrastEnabled
+            prefs[HIGH_CONTRAST] = next.themeStyle == ThemeStyle.HIGH_CONTRAST
+            AppLocale.persist(context, next.language)
         }
     }
 

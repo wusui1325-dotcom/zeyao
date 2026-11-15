@@ -1,6 +1,7 @@
 package com.wusper.zeyao.ai
 
 import android.os.SystemClock
+import com.wusper.zeyao.data.NewsHosts
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -13,7 +14,7 @@ object SummaryCache {
     data class Entry(val text: String, val at: Long)
 
     fun get(url: String): String? {
-        val key = url.trim().lowercase()
+        val key = NewsHosts.canonicalUrl(url)
         val e = cache[key] ?: return null
         if (SystemClock.elapsedRealtime() - e.at > TTL_MS) {
             cache.remove(key)
@@ -24,7 +25,7 @@ object SummaryCache {
 
     fun put(url: String, text: String) {
         if (text.isBlank()) return
-        cache[url.trim().lowercase()] = Entry(text, SystemClock.elapsedRealtime())
+        cache[NewsHosts.canonicalUrl(url)] = Entry(text, SystemClock.elapsedRealtime())
         // Keep size bounded
         if (cache.size > 120) {
             val oldest = cache.entries.minByOrNull { it.value.at }?.key

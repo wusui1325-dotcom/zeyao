@@ -28,6 +28,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.wusper.zeyao.R
 
 @Composable
 fun VerifyScreen() {
@@ -81,7 +83,7 @@ fun VerifyScreen() {
             }
             Spacer(Modifier.height(16.dp))
             Text(
-                "驗證中",
+                stringResource(R.string.verifying),
                 style = MaterialTheme.typography.titleMedium,
                 color = colors.onSurface,
             )

@@ -1,5 +1,6 @@
 package com.wusper.zeyao
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
 import com.wusper.zeyao.ai.AiProvider
 import com.wusper.zeyao.ai.NewsClassifier
+import com.wusper.zeyao.data.AppLocale
 import com.wusper.zeyao.data.AppSettings
 import com.wusper.zeyao.data.BrowserHandoff
 import com.wusper.zeyao.data.NewsHosts
@@ -34,6 +36,10 @@ class VerifyActivity : ComponentActivity() {
     private var job: Job? = null
     private var decided = false
     private var handoffPackage: String? = null
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -147,11 +153,16 @@ class VerifyActivity : ComponentActivity() {
         overridePendingTransition(0, 0)
     }
 
+    override fun onDestroy() {
+        job?.cancel()
+        super.onDestroy()
+    }
+
     companion object {
         const val EXTRA_URL = "url"
         const val EXTRA_TITLE = "title"
         const val EXTRA_PACKAGE = "pkg"
         const val EXTRA_HANDOFF = "handoff"
-        private const val CLASSIFY_TIMEOUT_MS = 12_000L
+        private const val CLASSIFY_TIMEOUT_MS = 8_000L
     }
 }

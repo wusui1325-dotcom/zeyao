@@ -46,6 +46,7 @@ import com.wusper.zeyao.ui.components.TopAction
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 @Composable
 fun MainScreen(
@@ -83,15 +84,15 @@ fun MainScreen(
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TopAction("其他", onOpenOther)
+            TopAction(stringResource(R.string.other), onOpenOther)
             Spacer(Modifier.weight(1f))
             Text(
-                "擇要",
+                stringResource(R.string.app_name),
                 style = MaterialTheme.typography.titleLarge,
                 fontFamily = FontFamily.Serif,
             )
             Spacer(Modifier.weight(1f))
-            TopAction("設置", onOpenSettings)
+            TopAction(stringResource(R.string.settings), onOpenSettings)
         }
         Column(Modifier.padding(horizontal = 20.dp)) {
             Spacer(Modifier.height(8.dp))
@@ -114,7 +115,7 @@ fun MainScreen(
             TextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("搜尋紀錄") },
+                placeholder = { Text(stringResource(R.string.search_records)) },
                 singleLine = true,
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = colors.surfaceVariant.copy(alpha = 0.4f),
@@ -124,26 +125,27 @@ fun MainScreen(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "匯出紀錄",
+                stringResource(R.string.export_records),
                 style = MaterialTheme.typography.labelLarge,
                 color = colors.primary,
                 modifier = Modifier
                     .clickable {
+                        val exportTitle = context.getString(R.string.export_records)
                         val text = filtered.joinToString("\n\n") { r ->
                             "${r.title}\n${r.url}\n${r.summary.take(200)}"
                         }
                         val send = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, text.ifBlank { "（無紀錄）" })
+                            putExtra(Intent.EXTRA_TEXT, text.ifBlank { "—" })
                         }
-                        runCatching { context.startActivity(Intent.createChooser(send, "匯出紀錄")) }
+                        runCatching { context.startActivity(Intent.createChooser(send, exportTitle)) }
                     }
                     .padding(vertical = 4.dp),
             )
             Spacer(Modifier.height(8.dp))
         }
         if (filtered.isEmpty()) {
-            EmptyHint(if (query.isBlank()) "還沒有擇要紀錄。開啟攔截後，打開新聞頁就會出現在這裡。" else "沒有符合的紀錄")
+            EmptyHint(stringResource(if (query.isBlank()) R.string.no_records else R.string.no_matching_records))
         } else {
             LazyColumn(
                 Modifier
@@ -179,13 +181,14 @@ private fun AllPagesCard(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("所有網頁攔截", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.intercept_all), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     if (enabled) {
-                        if (askBefore) "攔截後會詢問是否擇要" else "攔截後一律直接擇要"
+                        if (askBefore) stringResource(R.string.intercept_all_on_ask)
+                        else stringResource(R.string.intercept_all_on_direct)
                     } else {
-                        "開啟後攔截所有網頁，不做新聞驗證，直接擇要"
+                        stringResource(R.string.intercept_all_off)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
@@ -202,19 +205,19 @@ private fun AllPagesCard(
     if (showAsk) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showAsk = false },
-            title = { Text("攔截後一律詢問？") },
-            text = { Text("開啟：攔截到後彈窗問是否擇要。\n關閉：一律直接進入擇要。") },
+            title = { Text(stringResource(R.string.ask_enable_title)) },
+            text = { Text(stringResource(R.string.ask_enable_body)) },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     onToggle(true, true)
                     showAsk = false
-                }) { Text("開啟詢問") }
+                }) { Text(stringResource(R.string.ask_enable_ask)) }
             },
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     onToggle(true, false)
                     showAsk = false
-                }) { Text("直接擇要") }
+                }) { Text(stringResource(R.string.ask_enable_direct)) }
             },
         )
     }
@@ -243,7 +246,7 @@ private fun InterceptCard(
                 Text(stringResource(R.string.intercept_news), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    statusLine(interceptOn, vpnReady, accessibilityEnabled, scheduleEnabled),
+                    interceptStatusLine(interceptOn, vpnReady, accessibilityEnabled, scheduleEnabled),
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
                 )
@@ -253,17 +256,18 @@ private fun InterceptCard(
     }
 }
 
-private fun statusLine(
+@Composable
+private fun interceptStatusLine(
     interceptOn: Boolean,
     vpnReady: Boolean,
     accessibilityEnabled: Boolean,
     scheduleEnabled: Boolean,
 ): String {
-    if (!interceptOn) return "攔截已關閉"
+    if (!interceptOn) return stringResource(R.string.intercept_off)
     val parts = mutableListOf<String>()
-    parts += if (vpnReady) "本機 VPN 已開" else "尚未授權本機 VPN"
-    parts += if (accessibilityEnabled) "無障礙已開" else "尚未開啟無障礙（無法取得完整網址）"
-    if (scheduleEnabled) parts += "已啟用特定時段"
+    parts += if (vpnReady) stringResource(R.string.status_vpn_on) else stringResource(R.string.status_vpn_off)
+    parts += if (accessibilityEnabled) stringResource(R.string.status_a11y_on) else stringResource(R.string.status_a11y_off)
+    if (scheduleEnabled) parts += stringResource(R.string.status_schedule_on)
     return parts.joinToString(" · ")
 }
 
@@ -292,7 +296,7 @@ private fun RecordRow(record: SummaryRecord, onClick: () -> Unit) {
             Spacer(Modifier.width(10.dp))
             Text(formatTime(record.createdAt), style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
             Spacer(Modifier.width(10.dp))
-            Text(statusLabel(record.status), style = MaterialTheme.typography.labelMedium, color = colors.primary)
+            Text(recordStatusLabel(record.status), style = MaterialTheme.typography.labelMedium, color = colors.primary)
         }
         if (record.summary.isNotBlank()) {
             Spacer(Modifier.height(8.dp))
@@ -320,11 +324,11 @@ fun RecordDetailScreen(record: SummaryRecord, onBack: () -> Unit) {
             Modifier.fillMaxWidth().padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TopAction("返回", onBack)
+            TopAction(stringResource(R.string.back), onBack)
         }
         Text(record.title.ifBlank { record.host }, style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
-        Text("${record.host}  ·  ${formatTime(record.createdAt)}  ·  ${statusLabel(record.status)}",
+        Text("${record.host}  ·  ${formatTime(record.createdAt)}  ·  ${recordStatusLabel(record.status)}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(6.dp))
@@ -332,7 +336,9 @@ fun RecordDetailScreen(record: SummaryRecord, onBack: () -> Unit) {
         Spacer(Modifier.height(20.dp))
         Text(
             record.summary.ifBlank {
-                if (record.status == RecordStatus.GENERATING) "仍在生成中…" else "沒有摘要內容。"
+                stringResource(
+                    if (record.status == RecordStatus.GENERATING) R.string.still_generating else R.string.no_summary,
+                )
             },
             style = MaterialTheme.typography.bodyLarge,
         )
@@ -341,14 +347,15 @@ fun RecordDetailScreen(record: SummaryRecord, onBack: () -> Unit) {
 
 internal fun formatTime(epochMs: Long): String {
     val zone = ZoneId.systemDefault()
-    return DateTimeFormatter.ofPattern("yyyy年M月d日 HH:mm")
+    return DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
         .withZone(zone)
         .format(Instant.ofEpochMilli(epochMs))
 }
 
-internal fun statusLabel(status: RecordStatus): String = when (status) {
-    RecordStatus.COMPLETED -> "完成"
-    RecordStatus.GENERATING -> "生成中"
-    RecordStatus.FAILED -> "失敗"
-    RecordStatus.CANCELLED -> "已中止"
+@Composable
+internal fun recordStatusLabel(status: RecordStatus): String = when (status) {
+    RecordStatus.COMPLETED -> stringResource(R.string.status_completed)
+    RecordStatus.GENERATING -> stringResource(R.string.status_generating)
+    RecordStatus.FAILED -> stringResource(R.string.status_failed)
+    RecordStatus.CANCELLED -> stringResource(R.string.status_cancelled)
 }

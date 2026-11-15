@@ -3,6 +3,8 @@ package com.wusper.zeyao
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import android.content.Context
+import com.wusper.zeyao.data.AppLocale
 import com.wusper.zeyao.data.RecordRepository
 import com.wusper.zeyao.data.SecretStore
 import com.wusper.zeyao.data.SettingsRepository
@@ -17,12 +19,17 @@ class ZeyaoApp : Application() {
     lateinit var records: RecordRepository
         private set
 
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(AppLocale.wrap(base))
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
         settings = SettingsRepository(this)
         secrets = SecretStore(this)
         records = RecordRepository(this)
+        AppLocale.hydrateFromSettings(this, settings)
         runCatching { LocalCa.ensure(this) }
         InterceptController.attach(this)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {

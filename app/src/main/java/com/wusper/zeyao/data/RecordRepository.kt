@@ -5,28 +5,40 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.UUID
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 class RecordRepository(context: Context) {
     private val file = File(context.applicationContext.filesDir, "recent_records.json")
     private val mutex = Mutex()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _records = MutableStateFlow<List<SummaryRecord>>(emptyList())
     val records: StateFlow<List<SummaryRecord>> = _records.asStateFlow()
 
+    @Volatile
+    private var loaded = false
+    private var persistJob: Job? = null
+
     init {
-        _records.value = runCatching { readUnlocked() }.getOrDefault(emptyList())
+        scope.launch { ensureLoaded() }
     }
 
     suspend fun upsert(record: SummaryRecord) {
         mutex.withLock {
+            ensureLoadedLocked()
             val next = listOf(record) + _records.value.filterNot { it.id == record.id }
-            persist(next.take(MAX))
+            persistLocked(next.take(MAX), flush = true)
         }
     }
 
@@ -51,14 +63,20 @@ class RecordRepository(context: Context) {
         return record
     }
 
+    /**
+     * @param flush When false, disk writes are debounced so streaming tokens
+     * do not rewrite the records file on every delta.
+     */
     suspend fun update(
         id: String,
         summary: String? = null,
         title: String? = null,
         url: String? = null,
         status: RecordStatus? = null,
+        flush: Boolean = true,
     ) {
         mutex.withLock {
+            ensureLoadedLocked()
             val next = _records.value.map { item ->
                 if (item.id != id) item else item.copy(
                     summary = summary ?: item.summary,
@@ -67,17 +85,42 @@ class RecordRepository(context: Context) {
                     status = status ?: item.status,
                 )
             }
-            persist(next)
+            persistLocked(next, flush = flush)
         }
     }
 
     suspend fun get(id: String): SummaryRecord? = mutex.withLock {
+        ensureLoadedLocked()
         _records.value.find { it.id == id }
     }
 
-    private suspend fun persist(list: List<SummaryRecord>) {
+    private suspend fun ensureLoaded() {
+        mutex.withLock { ensureLoadedLocked() }
+    }
+
+    private suspend fun ensureLoadedLocked() {
+        if (loaded) return
+        _records.value = withContext(Dispatchers.IO) {
+            runCatching { readUnlocked() }.getOrDefault(emptyList())
+        }
+        loaded = true
+    }
+
+    private fun persistLocked(list: List<SummaryRecord>, flush: Boolean) {
         _records.value = list
-        withContext(Dispatchers.IO) {
+        persistJob?.cancel()
+        if (flush) {
+            persistJob = scope.launch { writeUnlocked(list) }
+        } else {
+            persistJob = scope.launch {
+                delay(DEBOUNCE_MS)
+                writeUnlocked(list)
+            }
+        }
+    }
+
+    private suspend fun writeUnlocked(list: List<SummaryRecord>) {
+        withContext(Dispatchers.IO + NonCancellable) {
             val arr = JSONArray()
             list.forEach { r ->
                 arr.put(
@@ -91,7 +134,12 @@ class RecordRepository(context: Context) {
                         .put("status", r.status.name),
                 )
             }
-            file.writeText(arr.toString())
+            val tmp = File(file.parentFile, file.name + ".tmp")
+            tmp.writeText(arr.toString())
+            if (!tmp.renameTo(file)) {
+                tmp.copyTo(file, overwrite = true)
+                tmp.delete()
+            }
         }
     }
 
@@ -119,5 +167,6 @@ class RecordRepository(context: Context) {
 
     private companion object {
         const val MAX = 200
+        const val DEBOUNCE_MS = 400L
     }
 }

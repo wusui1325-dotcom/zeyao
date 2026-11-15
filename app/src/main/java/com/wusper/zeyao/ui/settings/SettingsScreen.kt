@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +47,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import com.wusper.zeyao.BuildConfig
 import com.wusper.zeyao.R
 import com.wusper.zeyao.data.AppSettings
 import com.wusper.zeyao.data.EnterButtonPosition
@@ -169,7 +172,7 @@ fun SettingsScreen(
 
 
             SectionLabel(stringResource(R.string.section_cooldown))
-            val cooldownLabel = cooldownLabel(settings.siteCooldownSeconds)
+            val cooldownLabel = cooldownLabelText(settings.siteCooldownSeconds)
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -209,6 +212,7 @@ fun SettingsScreen(
                 caInstalled = caInstalled,
                 onUpdate = onUpdate,
                 onToggleHttpsDecrypt = onToggleHttpsDecrypt,
+                onRequestEnableHttps = { confirmHttps = true },
                 onInstallCa = onInstallCa,
             )
 
@@ -266,10 +270,17 @@ fun SettingsScreen(
                         ThemeStyle.FOLLOW_SYSTEM -> stringResource(R.string.theme_system)
                         ThemeStyle.DARK -> stringResource(R.string.theme_dark)
                         ThemeStyle.LIGHT -> stringResource(R.string.theme_light)
-                        ThemeStyle.HIGH_CONTRAST -> "高對比"
+                        ThemeStyle.HIGH_CONTRAST -> stringResource(R.string.theme_high_contrast)
                     },
                     selected = settings.themeStyle == style,
-                    onClick = { onUpdate { it.copy(themeStyle = style) } },
+                    onClick = {
+                        onUpdate {
+                            it.copy(
+                                themeStyle = style,
+                                highContrastEnabled = style == ThemeStyle.HIGH_CONTRAST,
+                            )
+                        }
+                    },
                 )
             }
             Spacer(Modifier.height(4.dp))
@@ -306,7 +317,7 @@ fun SettingsScreen(
                 title = stringResource(R.string.pref_length),
                 subtitle = when (settings.summaryLength) {
                     com.wusper.zeyao.data.SummaryLength.SHORT -> stringResource(R.string.shorter)
-                    com.wusper.zeyao.data.SummaryLength.NORMAL -> "一般"
+                    com.wusper.zeyao.data.SummaryLength.NORMAL -> stringResource(R.string.length_normal)
                     com.wusper.zeyao.data.SummaryLength.LONG -> stringResource(R.string.longer)
                 },
                 selected = false,
@@ -320,22 +331,16 @@ fun SettingsScreen(
                 },
             )
             SettingSwitch(
-                title = "反詐、防騙",
-                subtitle = "在提示詞加入安全提醒，並要求摘要開頭標出欺詐可能性與潛在威脅風險。",
+                title = stringResource(R.string.anti_fraud),
+                subtitle = stringResource(R.string.anti_fraud_hint),
                 checked = settings.antiFraudEnabled,
                 onChecked = { enabled -> onUpdate { it.copy(antiFraudEnabled = enabled) } },
             )
             SettingSwitch(
-                title = "真實性及時效性確認",
-                subtitle = "擇要前先抽出至少 10 個關鍵事實，對每個同時搜索，把結果塞回上下文。",
+                title = stringResource(R.string.authenticity),
+                subtitle = stringResource(R.string.authenticity_hint),
                 checked = settings.authenticityCheckEnabled,
                 onChecked = { enabled -> onUpdate { it.copy(authenticityCheckEnabled = enabled) } },
-            )
-            SettingSwitch(
-                title = "備用搜索",
-                subtitle = "官方 DeepSeek Search 無結果或失敗時，改用 DuckDuckGo。",
-                checked = settings.searchNewsEnabled,
-                onChecked = { enabled -> onUpdate { it.copy(searchNewsEnabled = enabled) } },
             )
             SettingSwitch(
                 title = stringResource(R.string.pref_search),
@@ -344,11 +349,11 @@ fun SettingsScreen(
                 onChecked = { enabled -> onUpdate { it.copy(searchNewsEnabled = enabled) } },
             )
             Spacer(Modifier.height(8.dp))
-            SectionLabel("實驗性")
+            SectionLabel(stringResource(R.string.section_experimental))
             var showImageWarn by remember { mutableStateOf(false) }
             SettingSwitch(
-                title = "圖片辨識",
-                subtitle = "預設關閉。開啟後每秒截圖存到 app 私有目錄（最多 3 張，超出刪最舊）。只有 VPN 偵測到網頁時，才把上一張送給最便宜模型抽標題或連結，再搜一次塞進擇要。",
+                title = stringResource(R.string.image_recognition),
+                subtitle = stringResource(R.string.image_recognition_hint),
                 checked = settings.imageRecognitionEnabled,
                 onChecked = { enabled ->
                     if (enabled) showImageWarn = true
@@ -361,45 +366,24 @@ fun SettingsScreen(
             if (showImageWarn) {
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { showImageWarn = false },
-                    title = { Text("開啟圖片辨識？") },
-                    text = { Text("這是實驗功能。開啟後會每秒截圖並存在這部裝置的 app 私有目錄（最多 3 張）。只有在攔截新聞時，才會把上一張截圖上傳到你的 AI API（最便宜模型）以抽出標題或連結。") },
+                    title = { Text(stringResource(R.string.image_recognition_warn_title)) },
+                    text = { Text(stringResource(R.string.image_recognition_warn_body)) },
                     confirmButton = {
                         androidx.compose.material3.TextButton(onClick = {
                             onUpdate { it.copy(imageRecognitionEnabled = true) }
                             com.wusper.zeyao.intercept.ScreenshotBuffer.enabled = true
                             showImageWarn = false
-                        }) { Text("確認開啟") }
+                        }) { Text(stringResource(R.string.confirm_enable)) }
                     },
                     dismissButton = {
-                        androidx.compose.material3.TextButton(onClick = { showImageWarn = false }) { Text("取消") }
+                        androidx.compose.material3.TextButton(onClick = { showImageWarn = false }) { Text(stringResource(R.string.cancel)) }
                     },
                 )
             }
 
             Spacer(Modifier.height(8.dp))
-            SectionLabel("狀態")
-            Text(
-                "已攔截次數：${settings.interceptCount}",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            val days = remember { com.wusper.zeyao.mitm.LocalCa.daysUntilExpiry() }
-            if (days in 0..30) {
-                Text(
-                    "擇要 CA 將在 $days 天後過期，建議重新安裝。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Spacer(Modifier.height(8.dp))
             GenerationParamsSection(settings, onUpdate)
             StatsSection(settings)
-            Spacer(Modifier.height(4.dp))
-            SettingSwitch(
-                title = "僅解密已知新聞域名",
-                subtitle = "開啟時 HTTPS 解密只對新聞網站生效，降低風險。",
-                checked = settings.httpsDecryptNewsOnly,
-                onChecked = { enabled -> onUpdate { it.copy(httpsDecryptNewsOnly = enabled) } },
-            )
             SettingSwitch(
                 title = stringResource(R.string.continue_on_exit),
                 subtitle = stringResource(R.string.continue_on_exit_hint),
@@ -425,7 +409,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(24.dp))
             Text(
-                "版本 6.7.0",
+                stringResource(R.string.version_label, BuildConfig.VERSION_NAME),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -480,32 +464,32 @@ fun SettingsScreen(
     if (confirmHttps) {
         AlertDialog(
             onDismissRequest = { confirmHttps = false },
-            title = { Text("開啟 HTTPS 解密？") },
-            text = { Text("這會使用本機 CA 解密流量。僅建議在信任的網路使用，並只對新聞域名生效。") },
+            title = { Text(stringResource(R.string.confirm_https_title)) },
+            text = { Text(stringResource(R.string.confirm_https_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     onToggleHttpsDecrypt(true)
                     confirmHttps = false
-                }) { Text("確認開啟") }
+                }) { Text(stringResource(R.string.confirm_enable)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmHttps = false }) { Text("取消") }
+                TextButton(onClick = { confirmHttps = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }
     if (confirmConsume) {
         AlertDialog(
             onDismissRequest = { confirmConsume = false },
-            title = { Text("開啟點擊攔截消耗？") },
-            text = { Text("開啟後會嘗試阻擋原始點擊。可能影響部分 App 操作，確認後再開啟。") },
+            title = { Text(stringResource(R.string.confirm_consume_title)) },
+            text = { Text(stringResource(R.string.confirm_consume_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     onToggleClickConsume(true)
                     confirmConsume = false
-                }) { Text("確認開啟") }
+                }) { Text(stringResource(R.string.confirm_enable)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmConsume = false }) { Text("取消") }
+                TextButton(onClick = { confirmConsume = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }
@@ -564,7 +548,15 @@ private fun PermissionLine(title: String, ok: Boolean, okText: String, badText: 
 
 @Composable
 private fun DayRow(selected: Int, onChange: (Int) -> Unit) {
-    val labels = listOf("日", "一", "二", "三", "四", "五", "六")
+    val labels = listOf(
+            stringResource(R.string.weekday_sun),
+            stringResource(R.string.weekday_mon),
+            stringResource(R.string.weekday_tue),
+            stringResource(R.string.weekday_wed),
+            stringResource(R.string.weekday_thu),
+            stringResource(R.string.weekday_fri),
+            stringResource(R.string.weekday_sat),
+        )
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         labels.forEachIndexed { index, label ->
             val bit = 1 shl index
@@ -634,7 +626,7 @@ private fun AppPickerDialog(
         text = {
             Column {
                 Text(
-                    "不選任何 App 表示全部。只勾選時，僅攔截這些 App 打開的新聞頁。",
+                    stringResource(R.string.apps_picker_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -642,12 +634,8 @@ private fun AppPickerDialog(
                 Row {
                     TextButton(onClick = { current = emptySet() }) { Text(stringResource(R.string.apps_clear)) }
                 }
-                Column(
-                    Modifier
-                        .height(360.dp)
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    apps.forEach { app ->
+                LazyColumn(Modifier.height(360.dp)) {
+                    items(apps, key = { it.packageName }) { app ->
                         val checked = app.packageName in current
                         Row(
                             Modifier
@@ -706,15 +694,16 @@ private fun BrowserPickerDialog(
     )
 }
 
-private fun cooldownLabel(seconds: Int): String = when (seconds) {
-    10 -> "10 秒"
-    30 -> "30 秒"
-    60 -> "1 分鐘"
-    120 -> "2 分鐘"
-    180 -> "3 分鐘"
-    300 -> "5 分鐘"
-    600 -> "10 分鐘"
-    else -> "${seconds} 秒"
+@Composable
+private fun cooldownLabelText(seconds: Int): String = when (seconds) {
+    10 -> stringResource(R.string.cd_10s)
+    30 -> stringResource(R.string.cd_30s)
+    60 -> stringResource(R.string.cd_1m)
+    120 -> stringResource(R.string.cd_2m)
+    180 -> stringResource(R.string.cd_3m)
+    300 -> stringResource(R.string.cd_5m)
+    600 -> stringResource(R.string.cd_10m)
+    else -> "${seconds}s"
 }
 
 @Composable
@@ -736,8 +725,8 @@ private fun CooldownPickerDialog(
             ) {
                 options.forEach { seconds ->
                     ChoiceRow(
-                        title = cooldownLabel(seconds),
-                        subtitle = if (seconds == 600) "預設" else null,
+                        title = cooldownLabelText(seconds),
+                        subtitle = if (seconds == 600) stringResource(R.string.cooldown_default) else null,
                         selected = seconds == selected,
                         onClick = { onConfirm(seconds) },
                     )

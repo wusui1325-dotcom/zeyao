@@ -40,6 +40,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.wusper.zeyao.R
 import com.wusper.zeyao.ZeyaoApp
@@ -48,6 +49,7 @@ import com.wusper.zeyao.ai.AiInitException
 import com.wusper.zeyao.ai.AiProvider
 import com.wusper.zeyao.ai.GenerationParams
 import com.wusper.zeyao.data.AppLanguage
+import com.wusper.zeyao.data.AppLocale
 import com.wusper.zeyao.ui.components.BrandMark
 import com.wusper.zeyao.ui.components.ChoiceRow
 import com.wusper.zeyao.ui.components.PrimaryButton
@@ -129,8 +131,8 @@ fun OnboardingRoute(
                         scope.launch {
                             app.settings.update { it.copy(language = lang) }
                         }
-                        val locale = java.util.Locale.forLanguageTag(lang.tag)
-                        java.util.Locale.setDefault(locale)
+                        AppLocale.persist(app, lang)
+                        java.util.Locale.setDefault(AppLocale.localeOf(lang))
                         step = OnboardingStep.PROVIDER
                     },
                 )

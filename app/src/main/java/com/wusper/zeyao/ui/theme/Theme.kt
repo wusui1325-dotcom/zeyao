@@ -41,14 +41,29 @@ fun ZeyaoTheme(
     content: @Composable () -> Unit,
 ) {
     val systemDark = isSystemInDarkTheme()
+    val highContrast = themeStyle == ThemeStyle.HIGH_CONTRAST
     val dark = when (themeStyle) {
         ThemeStyle.FOLLOW_SYSTEM -> systemDark
-        ThemeStyle.DARK -> true
+        ThemeStyle.DARK, ThemeStyle.HIGH_CONTRAST -> true
         ThemeStyle.LIGHT -> false
-        ThemeStyle.HIGH_CONTRAST -> true
     }
-    val scheme = if (dark) {
-        darkColorScheme(
+    val scheme = when {
+        highContrast -> darkColorScheme(
+            primary = Color.White,
+            onPrimary = Color.Black,
+            secondary = Color.White,
+            onSecondary = Color.Black,
+            background = Color.Black,
+            onBackground = Color.White,
+            surface = Color.Black,
+            onSurface = Color.White,
+            surfaceVariant = Color(0xFF111111L),
+            onSurfaceVariant = Color.White,
+            outline = Color.White,
+            error = Color(0xFFFF6B6BL),
+            onError = Color.Black,
+        )
+        dark -> darkColorScheme(
             primary = accent,
             onPrimary = Color.White,
             secondary = Cream,
@@ -63,8 +78,7 @@ fun ZeyaoTheme(
             error = Color(0xFFE07070L),
             onError = Color.White,
         )
-    } else {
-        lightColorScheme(
+        else -> lightColorScheme(
             primary = accent,
             onPrimary = Color.White,
             secondary = InkSoft,

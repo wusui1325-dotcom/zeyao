@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import com.wusper.zeyao.BuildConfig
 import com.wusper.zeyao.R
 import com.wusper.zeyao.ai.AiProvider
 import com.wusper.zeyao.data.AppLanguage
@@ -118,7 +119,7 @@ fun OtherScreen(
             Spacer(Modifier.height(36.dp))
             SectionLabel(stringResource(R.string.section_about))
             Text(
-                stringResource(R.string.about_text),
+                stringResource(R.string.about_text, BuildConfig.VERSION_NAME),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -1,19 +1,25 @@
 package com.wusper.zeyao
 
-import android.app.Activity
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
+import com.wusper.zeyao.data.AppLocale
 import com.wusper.zeyao.intercept.InterceptController
 
 /**
  * Shown when intercept-all is on and ask-before-summary is on.
- * 是 = open 擇要. 否 = let the page through.
+ * Yes = open 擇要. No = let the page through.
  */
 class AskInterceptActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val url = intent.getStringExtra(EXTRA_URL).orEmpty()
@@ -22,13 +28,17 @@ class AskInterceptActivity : ComponentActivity() {
         setContent {
             AlertDialog(
                 onDismissRequest = { decide(false, url) },
-                title = { Text("是否擇要？") },
+                title = { Text(stringResource(R.string.ask_dialog_title)) },
                 text = { Text(title.ifBlank { url }) },
                 confirmButton = {
-                    TextButton(onClick = { decide(true, url, title, pkg) }) { Text("是") }
+                    TextButton(onClick = { decide(true, url, title, pkg) }) {
+                        Text(stringResource(R.string.ask_yes))
+                    }
                 },
                 dismissButton = {
-                    TextButton(onClick = { decide(false, url) }) { Text("否") }
+                    TextButton(onClick = { decide(false, url) }) {
+                        Text(stringResource(R.string.ask_no))
+                    }
                 },
             )
         }

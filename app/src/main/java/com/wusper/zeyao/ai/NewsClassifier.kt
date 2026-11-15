@@ -41,7 +41,9 @@ object NewsClassifier {
                     AiProvider.CLAUDE -> claudeOnce(apiKey, model, title, url)
                     else -> openAiStyleOnce(provider, apiKey, model, title, url)
                 }
-                return@withContext parseYesNo(raw)
+                val parsed = parseYesNo(raw)
+                if (parsed != null) return@withContext parsed
+                lastError = AiInitException("無法判斷是否為新聞")
             } catch (e: Exception) {
                 lastError = e
                 if (index == models.lastIndex) break
@@ -196,17 +198,25 @@ object NewsClassifier {
         }
     }
 
-    internal fun parseYesNo(text: String): Boolean {
+    /**
+     * @return true/false when the model clearly answered, or null when the
+     * reply is empty or unrecognisable. Callers must fail open on null and
+     * must not cache it as "not news".
+     */
+    internal fun parseYesNo(text: String): Boolean? {
         val t = text.trim().uppercase()
             .replace("`", "")
             .replace("\"", "")
             .replace("'", "")
-        if (t.isEmpty()) return false
+        if (t.isEmpty()) return null
         val first = t.lineSequence().first().trim()
+        if (first.startsWith("不是") || first.startsWith("NO") || first == "N" || first.startsWith("否") || first.startsWith("FALSE")) {
+            return false
+        }
         if (first.startsWith("YES") || first == "Y" || first.startsWith("是") || first.startsWith("TRUE")) {
             return true
         }
-        return false
+        return null
     }
 
     private val JSON = "application/json; charset=utf-8".toMediaType()
