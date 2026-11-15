@@ -97,6 +97,7 @@
     <string name="set_default_browser">Set as default browser</string>
     <string name="default_browser_ok">Zeyao is the default browser. Non-news links go to the browser specified below.</string>
     <string name="default_browser_bad">Not set. Tap to ask the system, so links can be intercepted before the page opens.</string>
+    <string name="default_browser_settings_failed">Couldn\'t open the system default-apps screen. Please set Zeyao as the default browser in system settings.</string>
     <string name="handoff_unset">Not set. The device’s usual browser will be used.</string>
     <string name="handoff_hint">Actual browser: %1$s. Tap to choose where “Open” or non-news links go.</string>
     <string name="theme_system">Follow system</string>

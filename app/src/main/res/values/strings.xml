@@ -105,6 +105,7 @@
     <string name="set_default_browser">設為預設瀏覽器</string>
     <string name="default_browser_ok">擇要目前是預設瀏覽器。不是新聞的連結會轉到下面指定的瀏覽器。</string>
     <string name="default_browser_bad">未設定。點此向系統申請，打開連結時才能在進頁面前攔截。</string>
+    <string name="default_browser_settings_failed">無法開啟系統的預設應用程式設定，請到系統設定裡手動將擇要設為預設瀏覽器。</string>
     <string name="handoff_unset">尚未指定，將使用裝置上的常用瀏覽器</string>
     <string name="handoff_hint">實際瀏覽器：%1$s。點此選擇「進入」或非新聞連結要跳轉的瀏覽器。</string>
     <string name="theme_system">跟隨系統</string>

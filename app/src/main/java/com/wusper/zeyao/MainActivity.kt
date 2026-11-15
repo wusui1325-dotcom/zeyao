@@ -63,6 +63,10 @@ class MainActivity : FragmentActivity() {
         ActivityResultContracts.RequestPermission(),
     ) { /* Notification is optional; intercept still works. */ }
 
+    private val defaultBrowserRoleRequest = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { /* Default-browser status is refreshed when we resume. */ }
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocale.wrap(newBase))
     }
@@ -227,10 +231,7 @@ class MainActivity : FragmentActivity() {
                                 onOpenVpnSettings = { prepareOrStartVpn() },
                                 browsers = browsers,
                                 isDefaultBrowser = isDefaultBrowser,
-                                onRequestDefaultBrowser = {
-                                    markExternalLaunch()
-                                    startActivity(BrowserHandoff.requestDefaultBrowserIntent(this@MainActivity))
-                                },
+                                onRequestDefaultBrowser = { openDefaultBrowserSettings() },
                                 caInstalled = caInstalled,
                                 onToggleHttpsDecrypt = { enabled ->
                                     scope.launch { handleHttpsDecryptToggle(enabled) }
@@ -359,6 +360,23 @@ class MainActivity : FragmentActivity() {
 
     private fun markExternalLaunch() {
         launchedExternal = true
+    }
+
+    private fun openDefaultBrowserSettings() {
+        markExternalLaunch()
+        val opened = BrowserHandoff.defaultBrowserSettingsIntents(this).any { (step, intent) ->
+            runCatching {
+                if (step == BrowserHandoff.DefaultBrowserRequestStep.REQUEST_ROLE) {
+                    defaultBrowserRoleRequest.launch(intent)
+                } else {
+                    startActivity(intent)
+                }
+                true
+            }.getOrDefault(false)
+        }
+        if (!opened) {
+            Toast.makeText(this, getString(R.string.default_browser_settings_failed), Toast.LENGTH_LONG).show()
+        }
     }
 
     private suspend fun handleInterceptToggle(enabled: Boolean) {

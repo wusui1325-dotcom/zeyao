@@ -97,6 +97,7 @@
     <string name="set_default_browser">设为默认浏览器</string>
     <string name="default_browser_ok">择要目前是默认浏览器。不是新闻的链接会转到下面指定的浏览器。</string>
     <string name="default_browser_bad">未设置。点此向系统申请，打开链接时才能在进页面前拦截。</string>
+    <string name="default_browser_settings_failed">无法打开系统的默认应用程序设置，请到系统设置里手动将择要设为默认浏览器。</string>
     <string name="handoff_unset">尚未指定，将使用装置上的常用浏览器</string>
     <string name="handoff_hint">实际浏览器：%1$s。点此选择「进入」或非新闻链接要跳转的浏览器。</string>
     <string name="theme_system">跟随系统</string>
