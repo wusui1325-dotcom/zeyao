@@ -170,29 +170,202 @@ class RecordRepository(context: Context) {
 
     private fun readUnlocked(): List<SummaryRecord> {
         if (!file.exists()) return emptyList()
-        val arr = JSONArray(file.readText())
-        return buildList {
-            for (i in 0 until arr.length()) {
-                val o = arr.getJSONObject(i)
-                add(
-                    SummaryRecord(
-                        id = o.getString("id"),
-                        url = o.optString("url"),
-                        title = o.optString("title"),
-                        host = o.optString("host"),
-                        summary = o.optString("summary"),
-                        createdAt = o.optLong("createdAt"),
-                        status = runCatching { RecordStatus.valueOf(o.optString("status")) }
-                            .getOrDefault(RecordStatus.COMPLETED),
-                        pinned = o.optBoolean("pinned", false),
-                    ),
-                )
-            }
-        }
+        return parseRecordsJson(file.readText())
     }
 
     private companion object {
         const val MAX = 200
         const val DEBOUNCE_MS = 400L
+    }
+}
+
+/** Parses the records file. Old entries without [SummaryRecord.pinned] stay unpinned. */
+internal fun parseRecordsJson(text: String): List<SummaryRecord> {
+    return parseObjectArray(text).mapNotNull { o ->
+        val id = o.string("id")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        SummaryRecord(
+            id = id,
+            url = o.string("url").orEmpty(),
+            title = o.string("title").orEmpty(),
+            host = o.string("host").orEmpty(),
+            summary = o.string("summary").orEmpty(),
+            createdAt = o.long("createdAt"),
+            status = runCatching { RecordStatus.valueOf(o.string("status").orEmpty()) }
+                .getOrDefault(RecordStatus.COMPLETED),
+            pinned = o.bool("pinned"),
+        )
+    }
+}
+
+private data class JsonMap(private val values: Map<String, Any?>) {
+    fun string(key: String): String? = values[key] as? String
+    fun long(key: String): Long = when (val v = values[key]) {
+        is Number -> v.toLong()
+        is String -> v.toLongOrNull() ?: 0L
+        else -> 0L
+    }
+    fun bool(key: String): Boolean = when (val v = values[key]) {
+        is Boolean -> v
+        is String -> v.equals("true", ignoreCase = true)
+        is Number -> v.toInt() != 0
+        else -> false
+    }
+}
+
+private fun parseObjectArray(text: String): List<JsonMap> {
+    val s = text.trim()
+    if (s.isEmpty()) return emptyList()
+    return MiniJson(s).parseArray()
+}
+
+private class MiniJson(private val src: String) {
+    private var i = 0
+
+    fun parseArray(): List<JsonMap> {
+        skip()
+        if (!eat('[')) return emptyList()
+        val out = mutableListOf<JsonMap>()
+        skip()
+        if (peek() == ']') {
+            i++
+            return out
+        }
+        while (i < src.length) {
+            skip()
+            if (peek() == ']') {
+                i++
+                break
+            }
+            val value = parseValue()
+            if (value is JsonMap) out.add(value)
+            skip()
+            if (peek() == ',') {
+                i++
+                continue
+            }
+            if (peek() == ']') {
+                i++
+                break
+            }
+            break
+        }
+        return out
+    }
+
+    private fun parseValue(): Any? {
+        skip()
+        return when (val c = peek()) {
+            '"' -> parseString()
+            '{' -> parseObject()
+            't' -> { expect("true"); true }
+            'f' -> { expect("false"); false }
+            'n' -> { expect("null"); null }
+            else -> if (c == '-' || c in '0'..'9') parseNumber() else {
+                i = src.length
+                null
+            }
+        }
+    }
+
+    private fun parseObject(): JsonMap {
+        eat('{')
+        val map = mutableMapOf<String, Any?>()
+        skip()
+        if (peek() == '}') {
+            i++
+            return JsonMap(map)
+        }
+        while (i < src.length) {
+            skip()
+            if (peek() == '}') {
+                i++
+                break
+            }
+            if (peek() != '"') break
+            val key = parseString()
+            skip()
+            if (!eat(':')) break
+            map[key] = parseValue()
+            skip()
+            if (peek() == ',') {
+                i++
+                continue
+            }
+            if (peek() == '}') {
+                i++
+                break
+            }
+            break
+        }
+        return JsonMap(map)
+    }
+
+    private fun parseString(): String {
+        if (!eat('"')) return ""
+        val out = StringBuilder()
+        while (i < src.length) {
+            val c = src[i++]
+            when (c) {
+                '"' -> return out.toString()
+                '\\' -> {
+                    if (i >= src.length) break
+                    when (val e = src[i++]) {
+                        '"', '\\', '/' -> out.append(e)
+                        'b' -> out.append('\b')
+                        'f' -> out.append('\u000c')
+                        'n' -> out.append('\n')
+                        'r' -> out.append('\r')
+                        't' -> out.append('\t')
+                        'u' -> {
+                            if (i + 4 <= src.length) {
+                                val hex = src.substring(i, i + 4)
+                                i += 4
+                                out.append(hex.toIntOrNull(16)?.toChar() ?: '?')
+                            }
+                        }
+                        else -> out.append(e)
+                    }
+                }
+                else -> out.append(c)
+            }
+        }
+        return out.toString()
+    }
+
+    private fun parseNumber(): Number {
+        val start = i
+        if (peek() == '-') i++
+        while (peek() in '0'..'9') i++
+        var isDouble = false
+        if (peek() == '.') {
+            isDouble = true
+            i++
+            while (peek() in '0'..'9') i++
+        }
+        if (peek() == 'e' || peek() == 'E') {
+            isDouble = true
+            i++
+            if (peek() == '+' || peek() == '-') i++
+            while (peek() in '0'..'9') i++
+        }
+        val raw = src.substring(start, i)
+        return if (isDouble) raw.toDoubleOrNull() ?: 0.0 else raw.toLongOrNull() ?: 0L
+    }
+
+    private fun skip() {
+        while (i < src.length && src[i].isWhitespace()) i++
+    }
+
+    private fun peek(): Char = if (i < src.length) src[i] else '\u0000'
+
+    private fun eat(c: Char): Boolean {
+        skip()
+        if (peek() != c) return false
+        i++
+        return true
+    }
+
+    private fun expect(token: String) {
+        if (src.startsWith(token, i)) i += token.length else i = src.length
     }
 }

@@ -10,3 +10,7 @@
 -keepattributes *Annotation*
 -keep class androidx.security.crypto.** { *; }
 -keep class com.google.crypto.tink.** { *; }
+
+-keep class androidx.fragment.app.** { *; }
+-keep class androidx.biometric.** { *; }
+-keep class androidx.appcompat.** { *; }

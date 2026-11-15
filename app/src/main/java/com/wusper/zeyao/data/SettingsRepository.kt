@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -19,7 +20,8 @@ private val Context.settingsStore by preferencesDataStore(name = "zeyao_settings
 
 class SettingsRepository(private val context: Context) {
     val settings: Flow<AppSettings> = context.settingsStore.data
-        .map { it.toSettings() }
+        .map { prefs -> runCatching { prefs.toSettings() }.getOrDefault(AppSettings()) }
+        .catch { emit(AppSettings()) }
         .distinctUntilChanged()
 
     suspend fun current(): AppSettings = settings.first()

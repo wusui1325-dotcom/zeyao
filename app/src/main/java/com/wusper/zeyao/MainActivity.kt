@@ -93,14 +93,10 @@ class MainActivity : FragmentActivity() {
             var showLock by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
-                val current = app.settings.current()
-                if (current.biometricUnlockEnabled) {
-                    unlocked = false
-                    showLock = true
-                } else {
-                    unlocked = true
-                    showLock = false
-                }
+                val current = runCatching { app.settings.current() }.getOrNull()
+                val enabled = current?.biometricUnlockEnabled == true
+                unlocked = !enabled
+                showLock = enabled
                 lockReady = true
             }
 

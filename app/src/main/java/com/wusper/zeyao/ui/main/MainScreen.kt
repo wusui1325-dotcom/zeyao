@@ -26,27 +26,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -79,7 +68,7 @@ import kotlinx.coroutines.launch
 
 private enum class RecordFilter { ALL, PINNED, FAILED }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MainScreen(
     settings: AppSettings,
@@ -136,14 +125,13 @@ fun MainScreen(
         }
     }
 
-    Scaffold(
-        modifier = Modifier
+    Box(
+        Modifier
             .fillMaxSize()
             .statusBarsPadding()
             .navigationBarsPadding(),
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { inner ->
-        Column(Modifier.fillMaxSize().padding(inner)) {
+    ) {
+        Column(Modifier.fillMaxSize()) {
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -194,20 +182,20 @@ fun MainScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    FilterChip(
+                    FilterPill(
+                        label = stringResource(R.string.filter_all),
                         selected = filter == RecordFilter.ALL,
                         onClick = { filter = RecordFilter.ALL },
-                        label = { Text(stringResource(R.string.filter_all)) },
                     )
-                    FilterChip(
+                    FilterPill(
+                        label = stringResource(R.string.filter_pinned),
                         selected = filter == RecordFilter.PINNED,
                         onClick = { filter = RecordFilter.PINNED },
-                        label = { Text(stringResource(R.string.filter_pinned)) },
                     )
-                    FilterChip(
+                    FilterPill(
+                        label = stringResource(R.string.filter_failed),
                         selected = filter == RecordFilter.FAILED,
                         onClick = { filter = RecordFilter.FAILED },
-                        label = { Text(stringResource(R.string.filter_failed)) },
                     )
                 }
                 Spacer(Modifier.height(4.dp))
@@ -241,7 +229,7 @@ fun MainScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     items(filtered, key = { it.id }) { record ->
-                        SwipeRecordRow(
+                        RecordRow(
                             record = record,
                             onClick = { onOpenRecord(record) },
                             onPin = { pinned ->
@@ -254,50 +242,32 @@ fun MainScreen(
                 }
             }
         }
+        SnackbarHost(
+            snackbar,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp),
+        )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SwipeRecordRow(
-    record: SummaryRecord,
+private fun FilterPill(
+    label: String,
+    selected: Boolean,
     onClick: () -> Unit,
-    onPin: (Boolean) -> Unit,
-    onDelete: () -> Unit,
 ) {
-    val deleteCd = stringResource(R.string.cd_delete)
-    val state = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart || value == SwipeToDismissBoxValue.StartToEnd) {
-                onDelete()
-                true
-            } else {
-                false
-            }
-        },
-    )
-    SwipeToDismissBox(
-        state = state,
-        backgroundContent = {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.18f))
-                    .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Text(
-                    stringResource(R.string.delete),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.semantics { contentDescription = deleteCd },
-                )
-            }
-        },
-        content = {
-            RecordRow(record, onClick = onClick, onPin = onPin)
-        },
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(16.dp)
+    Text(
+        label,
+        style = MaterialTheme.typography.labelLarge,
+        color = if (selected) colors.onPrimary else colors.onSurface,
+        modifier = Modifier
+            .clip(shape)
+            .background(if (selected) colors.primary else colors.surfaceVariant.copy(alpha = 0.55f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
     )
 }
 
@@ -415,10 +385,12 @@ private fun RecordRow(
     record: SummaryRecord,
     onClick: () -> Unit,
     onPin: (Boolean) -> Unit,
+    onDelete: (() -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(18.dp)
     val pinCd = stringResource(if (record.pinned) R.string.cd_unpin else R.string.cd_pin)
+    val deleteCd = stringResource(R.string.cd_delete)
     Column(
         Modifier
             .fillMaxWidth()
@@ -426,7 +398,7 @@ private fun RecordRow(
             .background(colors.surface)
             .border(1.dp, colors.outline.copy(alpha = 0.45f), shape)
             .clickable(onClick = onClick)
-            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 16.dp),
+            .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(top = 8.dp)) {
@@ -437,14 +409,26 @@ private fun RecordRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            IconButton(
-                onClick = { onPin(!record.pinned) },
-                modifier = Modifier.semantics { contentDescription = pinCd },
-            ) {
-                Icon(
-                    imageVector = if (record.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                    contentDescription = pinCd,
-                    tint = if (record.pinned) colors.primary else colors.onSurfaceVariant,
+            Text(
+                stringResource(if (record.pinned) R.string.unpin else R.string.pin),
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.primary,
+                modifier = Modifier
+                    .semantics { contentDescription = pinCd }
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onPin(!record.pinned) }
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+            )
+            if (onDelete != null) {
+                Text(
+                    stringResource(R.string.delete),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.error,
+                    modifier = Modifier
+                        .semantics { contentDescription = deleteCd }
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onDelete)
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
                 )
             }
         }
