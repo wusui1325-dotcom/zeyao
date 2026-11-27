@@ -78,19 +78,22 @@ class VerifyActivity : Activity() {
         val highContrast = settings.themeStyle == ThemeStyle.HIGH_CONTRAST
         val cardColor = when {
             highContrast -> 0xFF000000.toInt()
-            dark -> 0xFF221C18.toInt()
-            else -> 0xFFFFFBF4.toInt()
+            dark -> 0xFF121212.toInt()
+            else -> 0xFFFFFFFF.toInt()
         }
-        val textColor = when {
+        val borderColor = when {
             highContrast -> 0xFFFFFFFF.toInt()
-            dark -> 0xFFEDE6DA.toInt()
-            else -> 0xFF1C1410.toInt()
+            dark -> 0xFF2B2B2B.toInt()
+            else -> 0xFFE4E4E4.toInt()
         }
-        val accent = if (highContrast) 0xFFFFFFFF.toInt() else (settings.accentColor.toInt())
+        val textColor = if (dark) 0xFFFFFFFF.toInt() else 0xFF0A0A0A.toInt()
+        val accent = textColor
         val card = findViewById<LinearLayout>(R.id.verify_card)
+        val density = resources.displayMetrics.density
         val drawable = GradientDrawable().apply {
             setColor(cardColor)
-            cornerRadius = 28f * resources.displayMetrics.density
+            setStroke((1f * density).toInt().coerceAtLeast(1), borderColor)
+            cornerRadius = 24f * density
         }
         card.background = drawable
         findViewById<TextView>(R.id.verify_label).setTextColor(textColor)

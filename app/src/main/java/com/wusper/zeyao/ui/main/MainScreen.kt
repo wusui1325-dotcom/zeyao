@@ -12,22 +12,27 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -35,8 +40,6 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,7 +53,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.wusper.zeyao.R
@@ -60,7 +63,13 @@ import com.wusper.zeyao.data.BrowserHandoff
 import com.wusper.zeyao.data.RecordStatus
 import com.wusper.zeyao.data.SummaryRecord
 import com.wusper.zeyao.ui.components.EmptyHint
+import com.wusper.zeyao.ui.components.FlatCard
+import com.wusper.zeyao.ui.components.IconBadge
+import com.wusper.zeyao.ui.components.PillAction
+import com.wusper.zeyao.ui.components.PillShape
+import com.wusper.zeyao.ui.components.SectionLabel
 import com.wusper.zeyao.ui.components.TopAction
+import com.wusper.zeyao.ui.components.ZeyaoIcons
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -133,28 +142,50 @@ fun MainScreen(
     Box(
         Modifier
             .fillMaxSize()
+            .background(colors.background)
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
         Column(Modifier.fillMaxSize()) {
+            // Streamlined Top Header
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TopAction(stringResource(R.string.other), onOpenOther)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontFamily = FontFamily.Serif,
+                TopAction(
+                    text = stringResource(R.string.other),
+                    icon = ZeyaoIcons.Grid,
+                    onClick = onOpenOther,
                 )
                 Spacer(Modifier.weight(1f))
-                TopAction(stringResource(R.string.settings), onOpenSettings)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        imageVector = ZeyaoIcons.Sparkle,
+                        contentDescription = null,
+                        tint = colors.onBackground,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                TopAction(
+                    text = stringResource(R.string.settings),
+                    icon = ZeyaoIcons.Settings,
+                    onClick = onOpenSettings,
+                )
             }
-            Column(Modifier.padding(horizontal = 20.dp)) {
-                Spacer(Modifier.height(8.dp))
+
+            Column(Modifier.padding(horizontal = 18.dp)) {
+                Spacer(Modifier.height(4.dp))
                 InterceptCard(
                     interceptOn = interceptOn,
                     vpnReady = vpnReady,
@@ -162,72 +193,27 @@ fun MainScreen(
                     scheduleEnabled = settings.scheduleEnabled,
                     onToggle = onToggleIntercept,
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
                 AllPagesCard(
                     enabled = settings.interceptAllPages,
                     askBefore = settings.askBeforeSummary,
                     onToggle = onToggleAllPages,
                 )
-                Spacer(Modifier.height(28.dp))
-                Text(stringResource(R.string.recent_records), style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
-                val clearCd = stringResource(R.string.clear_search)
-                TextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    placeholder = { Text(stringResource(R.string.search_records)) },
-                    singleLine = true,
-                    trailingIcon = if (query.isNotEmpty()) {
-                        {
-                            Text(
-                                "✕",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = colors.onSurfaceVariant,
-                                modifier = Modifier
-                                    .semantics { contentDescription = clearCd }
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { query = "" }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                            )
-                        }
-                    } else null,
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = colors.surfaceVariant.copy(alpha = 0.4f),
-                        unfocusedContainerColor = colors.surfaceVariant.copy(alpha = 0.3f),
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(8.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                Spacer(Modifier.height(18.dp))
+
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    val allLabel = stringResource(R.string.filter_all)
-                    val pinnedPillLabel = stringResource(R.string.filter_pinned)
-                    val failedPillLabel = stringResource(R.string.filter_failed)
-                    FilterPill(
-                        label = if (records.isNotEmpty()) "$allLabel ${records.size}" else allLabel,
-                        selected = filter == RecordFilter.ALL,
-                        onClick = { filter = RecordFilter.ALL },
+                    SectionLabel(
+                        text = stringResource(R.string.recent_records),
+                        icon = ZeyaoIcons.Clock,
+                        modifier = Modifier.weight(1f),
                     )
-                    FilterPill(
-                        label = if (pinnedCount > 0) "$pinnedPillLabel $pinnedCount" else pinnedPillLabel,
-                        selected = filter == RecordFilter.PINNED,
-                        onClick = { filter = RecordFilter.PINNED },
-                    )
-                    FilterPill(
-                        label = if (failedCount > 0) "$failedPillLabel $failedCount" else failedPillLabel,
-                        selected = filter == RecordFilter.FAILED,
-                        onClick = { filter = RecordFilter.FAILED },
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    stringResource(R.string.export_records),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colors.primary,
-                    modifier = Modifier
-                        .clickable {
+                    PillAction(
+                        text = stringResource(R.string.export_records),
+                        icon = ZeyaoIcons.Share,
+                        onClick = {
                             val exportTitle = context.getString(R.string.export_records)
                             val text = filtered.joinToString("\n\n") { r ->
                                 "${r.title}\n${r.url}\n${r.summary.take(200)}"
@@ -237,18 +223,92 @@ fun MainScreen(
                                 putExtra(Intent.EXTRA_TEXT, text.ifBlank { "—" })
                             }
                             runCatching { context.startActivity(Intent.createChooser(send, exportTitle)) }
+                        },
+                    )
+                }
+
+                Spacer(Modifier.height(6.dp))
+                val clearCd = stringResource(R.string.clear_search)
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text(stringResource(R.string.search_records), style = MaterialTheme.typography.bodyMedium) },
+                    singleLine = true,
+                    shape = PillShape,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = ZeyaoIcons.Search,
+                            contentDescription = null,
+                            tint = colors.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
+                    trailingIcon = if (query.isNotEmpty()) {
+                        {
+                            Box(
+                                Modifier
+                                    .semantics { contentDescription = clearCd }
+                                    .clip(PillShape)
+                                    .clickable { query = "" }
+                                    .padding(8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = ZeyaoIcons.Close,
+                                    contentDescription = null,
+                                    tint = colors.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
                         }
-                        .padding(vertical = 4.dp),
+                    } else null,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = colors.surface,
+                        unfocusedContainerColor = colors.surfaceVariant.copy(alpha = 0.65f),
+                        focusedBorderColor = colors.primary,
+                        unfocusedBorderColor = colors.outline,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    val allLabel = stringResource(R.string.filter_all)
+                    val pinnedPillLabel = stringResource(R.string.filter_pinned)
+                    val failedPillLabel = stringResource(R.string.filter_failed)
+                    PillAction(
+                        text = if (records.isNotEmpty()) "$allLabel ${records.size}" else allLabel,
+                        icon = ZeyaoIcons.ListIcon,
+                        selected = filter == RecordFilter.ALL,
+                        onClick = { filter = RecordFilter.ALL },
+                    )
+                    PillAction(
+                        text = if (pinnedCount > 0) "$pinnedPillLabel $pinnedCount" else pinnedPillLabel,
+                        icon = ZeyaoIcons.Pin,
+                        selected = filter == RecordFilter.PINNED,
+                        onClick = { filter = RecordFilter.PINNED },
+                    )
+                    PillAction(
+                        text = if (failedCount > 0) "$failedPillLabel $failedCount" else failedPillLabel,
+                        icon = ZeyaoIcons.Alert,
+                        selected = filter == RecordFilter.FAILED,
+                        onClick = { filter = RecordFilter.FAILED },
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
             }
+
             if (filtered.isEmpty()) {
-                EmptyHint(stringResource(if (query.isBlank() && filter == RecordFilter.ALL) R.string.no_records else R.string.no_matching_records))
+                EmptyHint(
+                    text = stringResource(if (query.isBlank() && filter == RecordFilter.ALL) R.string.no_records else R.string.no_matching_records),
+                    icon = if (query.isBlank() && filter == RecordFilter.ALL) ZeyaoIcons.Document else ZeyaoIcons.Search,
+                )
             } else {
                 LazyColumn(
                     Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 20.dp),
+                        .padding(horizontal = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     items(filtered, key = { it.id }) { record ->
@@ -275,26 +335,6 @@ fun MainScreen(
 }
 
 @Composable
-private fun FilterPill(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val colors = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(16.dp)
-    Text(
-        label,
-        style = MaterialTheme.typography.labelLarge,
-        color = if (selected) colors.onPrimary else colors.onSurface,
-        modifier = Modifier
-            .clip(shape)
-            .background(if (selected) colors.primary else colors.surfaceVariant.copy(alpha = 0.55f))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-    )
-}
-
-@Composable
 private fun AllPagesCard(
     enabled: Boolean,
     askBefore: Boolean,
@@ -302,19 +342,13 @@ private fun AllPagesCard(
 ) {
     var showAsk by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(20.dp)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(colors.surface)
-            .border(1.dp, colors.outline.copy(alpha = 0.7f), shape)
-            .padding(18.dp),
-    ) {
+    FlatCard(padding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(icon = ZeyaoIcons.Globe, active = enabled)
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.intercept_all), style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(4.dp))
+                Text(stringResource(R.string.intercept_all), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(2.dp))
                 Text(
                     if (enabled) {
                         if (askBefore) stringResource(R.string.intercept_all_on_ask)
@@ -326,6 +360,7 @@ private fun AllPagesCard(
                     color = colors.onSurfaceVariant,
                 )
             }
+            Spacer(Modifier.width(8.dp))
             Switch(
                 checked = enabled,
                 onCheckedChange = { on ->
@@ -335,21 +370,29 @@ private fun AllPagesCard(
         }
     }
     if (showAsk) {
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = { showAsk = false },
             title = { Text(stringResource(R.string.ask_enable_title)) },
             text = { Text(stringResource(R.string.ask_enable_body)) },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
+                TextButton(onClick = {
                     onToggle(true, true)
                     showAsk = false
-                }) { Text(stringResource(R.string.ask_enable_ask)) }
+                }) {
+                    Icon(ZeyaoIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.ask_enable_ask))
+                }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = {
+                TextButton(onClick = {
                     onToggle(true, false)
                     showAsk = false
-                }) { Text(stringResource(R.string.ask_enable_direct)) }
+                }) {
+                    Icon(ZeyaoIcons.Play, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.ask_enable_direct))
+                }
             },
         )
     }
@@ -364,25 +407,23 @@ private fun InterceptCard(
     onToggle: (Boolean) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(20.dp)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(colors.surface)
-            .border(1.dp, colors.outline.copy(alpha = 0.7f), shape)
-            .padding(18.dp),
-    ) {
+    FlatCard(padding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(
+                icon = if (interceptOn) ZeyaoIcons.ShieldCheck else ZeyaoIcons.Shield,
+                active = interceptOn,
+            )
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.intercept_news), style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(4.dp))
+                Text(stringResource(R.string.intercept_news), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(2.dp))
                 Text(
                     interceptStatusLine(interceptOn, vpnReady, accessibilityEnabled, scheduleEnabled),
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
                 )
             }
+            Spacer(Modifier.width(8.dp))
             Switch(checked = interceptOn, onCheckedChange = onToggle)
         }
     }
@@ -411,64 +452,64 @@ private fun RecordRow(
     onDelete: (() -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(18.dp)
     val pinCd = stringResource(if (record.pinned) R.string.cd_unpin else R.string.cd_pin)
     val deleteCd = stringResource(R.string.cd_delete)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(colors.surface)
-            .border(1.dp, colors.outline.copy(alpha = 0.45f), shape)
-            .clickable(onClick = onClick)
-            .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 16.dp),
+    FlatCard(
+        padding = PaddingValues(16.dp),
+        onClick = onClick,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(top = 8.dp)) {
+        Row(verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
                 Text(
                     record.title.ifBlank { record.host.ifBlank { record.url } },
                     style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        imageVector = ZeyaoIcons.Globe,
+                        contentDescription = null,
+                        tint = colors.onSurfaceVariant,
+                        modifier = Modifier.size(13.dp),
+                    )
+                    Text(
+                        record.host.ifBlank { "—" },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text("·", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                    Text(
+                        formatTime(record.createdAt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.onSurfaceVariant,
+                    )
+                    Text("·", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                    Text(
+                        recordStatusLabel(record.status),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (record.status == RecordStatus.FAILED) colors.error else colors.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
-            Text(
-                stringResource(if (record.pinned) R.string.unpin else R.string.pin),
-                style = MaterialTheme.typography.labelLarge,
-                color = colors.primary,
-                modifier = Modifier
-                    .semantics { contentDescription = pinCd }
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { onPin(!record.pinned) }
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                imageVector = ZeyaoIcons.ChevronRight,
+                contentDescription = null,
+                tint = colors.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
             )
-            if (onDelete != null) {
-                Text(
-                    stringResource(R.string.delete),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colors.error,
-                    modifier = Modifier
-                        .semantics { contentDescription = deleteCd }
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(onClick = onDelete)
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                )
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(record.host, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
-            Spacer(Modifier.width(10.dp))
-            Text(formatTime(record.createdAt), style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
-            Spacer(Modifier.width(10.dp))
-            Text(recordStatusLabel(record.status), style = MaterialTheme.typography.labelMedium, color = colors.primary)
-            if (record.pinned) {
-                Spacer(Modifier.width(10.dp))
-                Text(stringResource(R.string.pinned), style = MaterialTheme.typography.labelMedium, color = colors.primary)
-            }
         }
         if (record.summary.isNotBlank()) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
                 record.summary,
                 style = MaterialTheme.typography.bodyMedium,
@@ -476,6 +517,25 @@ private fun RecordRow(
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PillAction(
+                text = stringResource(if (record.pinned) R.string.unpin else R.string.pin),
+                icon = ZeyaoIcons.Pin,
+                selected = record.pinned,
+                contentDesc = pinCd,
+                onClick = { onPin(!record.pinned) },
+            )
+            if (onDelete != null) {
+                PillAction(
+                    text = stringResource(R.string.delete),
+                    icon = ZeyaoIcons.Trash,
+                    destructive = true,
+                    contentDesc = deleteCd,
+                    onClick = onDelete,
+                )
+            }
         }
     }
 }
@@ -494,6 +554,7 @@ fun RecordDetailScreen(
     onFontLarger: () -> Unit,
 ) {
     val context = LocalContext.current
+    val colors = MaterialTheme.colorScheme
     var confirmDelete by remember { mutableStateOf(false) }
     val bodyStyle = MaterialTheme.typography.bodyLarge.copy(
         fontSize = MaterialTheme.typography.bodyLarge.fontSize * fontScale,
@@ -502,90 +563,112 @@ fun RecordDetailScreen(
     Column(
         Modifier
             .fillMaxSize()
+            .background(colors.background)
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = 18.dp),
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            Modifier.fillMaxWidth().padding(vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TopAction(stringResource(R.string.back), onBack)
+            TopAction(
+                text = stringResource(R.string.back),
+                icon = ZeyaoIcons.ArrowLeft,
+                onClick = onBack,
+            )
             Spacer(Modifier.weight(1f))
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            Text(record.title.ifBlank { record.host }, style = MaterialTheme.typography.headlineSmall)
+            Text(
+                record.title.ifBlank { record.host },
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
             Spacer(Modifier.height(8.dp))
             val statusLabel = recordStatusLabel(record.status)
             val pinnedLabel = stringResource(R.string.pinned)
-            Text(
-                buildString {
-                    append(record.host)
-                    append("  ·  ")
-                    append(formatTime(record.createdAt))
-                    append("  ·  ")
-                    append(statusLabel)
-                    if (record.pinned) {
-                        append("  ·  ")
-                        append(pinnedLabel)
-                    }
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(record.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(ZeyaoIcons.Globe, contentDescription = null, tint = colors.onSurfaceVariant, modifier = Modifier.size(14.dp))
+                Text(
+                    buildString {
+                        append(record.host)
+                        append(" · ")
+                        append(formatTime(record.createdAt))
+                        append(" · ")
+                        append(statusLabel)
+                        if (record.pinned) {
+                            append(" · ")
+                            append(pinnedLabel)
+                        }
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(record.url, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             Spacer(Modifier.height(16.dp))
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                TextButton(onClick = {
-                    shareRecord(context, record)
-                }) { Text(stringResource(R.string.share)) }
-                TextButton(onClick = {
-                    copyRecord(context, record)
-                }) { Text(stringResource(R.string.copy)) }
-                TextButton(onClick = {
+                PillAction(stringResource(R.string.share), ZeyaoIcons.Share, { shareRecord(context, record) })
+                PillAction(stringResource(R.string.copy), ZeyaoIcons.Copy, { copyRecord(context, record) })
+                PillAction(stringResource(R.string.open_original), ZeyaoIcons.ArrowUpRight, {
                     if (record.url.isNotBlank()) {
                         BrowserHandoff.open(context, record.url, handoffPackage)
                     }
-                }) { Text(stringResource(R.string.open_original)) }
-                TextButton(onClick = { onPin(!record.pinned) }) {
-                    Text(stringResource(if (record.pinned) R.string.unpin else R.string.pin))
-                }
-                TextButton(onClick = onRegenerate) { Text(stringResource(R.string.regenerate_summary)) }
-                TextButton(onClick = onFontSmaller) { Text(stringResource(R.string.font_smaller)) }
-                TextButton(onClick = onFontLarger) { Text(stringResource(R.string.font_larger)) }
-                TextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.delete)) }
-            }
-            Spacer(Modifier.height(12.dp))
-            SelectionContainer {
-                Text(
-                    record.summary.ifBlank {
-                        stringResource(
-                            if (record.status == RecordStatus.GENERATING) R.string.still_generating else R.string.no_summary,
-                        )
-                    },
-                    style = bodyStyle,
+                })
+                PillAction(
+                    text = stringResource(if (record.pinned) R.string.unpin else R.string.pin),
+                    icon = ZeyaoIcons.Pin,
+                    selected = record.pinned,
+                    onClick = { onPin(!record.pinned) },
                 )
+                PillAction(stringResource(R.string.regenerate_summary), ZeyaoIcons.Refresh, onRegenerate)
+                PillAction(stringResource(R.string.font_smaller), ZeyaoIcons.TextSmaller, onFontSmaller)
+                PillAction(stringResource(R.string.font_larger), ZeyaoIcons.TextLarger, onFontLarger)
+                PillAction(stringResource(R.string.delete), ZeyaoIcons.Trash, { confirmDelete = true }, destructive = true)
+            }
+            Spacer(Modifier.height(16.dp))
+            FlatCard(padding = PaddingValues(18.dp)) {
+                SelectionContainer {
+                    Text(
+                        record.summary.ifBlank {
+                            stringResource(
+                                if (record.status == RecordStatus.GENERATING) R.string.still_generating else R.string.no_summary,
+                            )
+                        },
+                        style = bodyStyle,
+                    )
+                }
             }
             Spacer(Modifier.height(24.dp))
         }
     }
     if (confirmDelete) {
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text(stringResource(R.string.delete_record)) },
             text = { Text(stringResource(R.string.delete_record_body)) },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
+                TextButton(onClick = {
                     confirmDelete = false
                     onDelete()
-                }) { Text(stringResource(R.string.delete)) }
+                }) {
+                    Icon(ZeyaoIcons.Trash, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.delete))
+                }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { confirmDelete = false }) {
+                TextButton(onClick = { confirmDelete = false }) {
+                    Icon(ZeyaoIcons.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
                     Text(stringResource(R.string.cancel))
                 }
             },

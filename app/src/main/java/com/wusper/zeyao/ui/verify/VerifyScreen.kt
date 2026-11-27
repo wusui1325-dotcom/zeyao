@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,9 +27,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.wusper.zeyao.R
+import com.wusper.zeyao.ui.components.CardShape
 
 @Composable
 fun VerifyScreen() {
@@ -44,8 +46,8 @@ fun VerifyScreen() {
         label = "scale",
     )
     val alpha by pulse.animateFloat(
-        initialValue = 0.45f,
-        targetValue = 1f,
+        initialValue = 0.25f,
+        targetValue = 0.65f,
         animationSpec = infiniteRepeatable(
             animation = tween(900, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse,
@@ -56,9 +58,10 @@ fun VerifyScreen() {
     Box(
         Modifier
             .widthIn(min = 168.dp, max = 220.dp)
-            .clip(RoundedCornerShape(28.dp))
+            .clip(CardShape)
             .background(colors.surface)
-            .padding(horizontal = 28.dp, vertical = 26.dp),
+            .border(1.dp, colors.outline, CardShape)
+            .padding(horizontal = 28.dp, vertical = 24.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -68,23 +71,24 @@ fun VerifyScreen() {
             Box(contentAlignment = Alignment.Center) {
                 Box(
                     Modifier
-                        .size(56.dp)
+                        .size(52.dp)
                         .scale(scale)
-                        .alpha(alpha * 0.35f)
+                        .alpha(alpha * 0.22f)
                         .clip(CircleShape)
                         .background(colors.primary),
                 )
                 CircularProgressIndicator(
-                    modifier = Modifier.size(36.dp),
-                    strokeWidth = 3.dp,
+                    modifier = Modifier.size(34.dp),
+                    strokeWidth = 2.5.dp,
                     color = colors.primary,
-                    trackColor = colors.primary.copy(alpha = 0.2f),
+                    trackColor = colors.outline,
                 )
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
             Text(
                 stringResource(R.string.verifying),
                 style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
                 color = colors.onSurface,
             )
         }

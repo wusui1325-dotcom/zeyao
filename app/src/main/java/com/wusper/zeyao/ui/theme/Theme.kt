@@ -16,15 +16,22 @@ import androidx.compose.ui.unit.sp
 import com.wusper.zeyao.data.ThemeStyle
 import com.wusper.zeyao.data.TypographyStyle
 
-val Ink = Color(0xFF1C1410L)
-val InkSoft = Color(0xFF3A3028L)
-val Paper = Color(0xFFF6F0E6L)
-val PaperDim = Color(0xFFE9E1D3L)
-val Muted = Color(0xFF7A6E62L)
-val Night = Color(0xFF161210L)
-val NightElevated = Color(0xFF221C18L)
-val Cream = Color(0xFFEDE6DAL)
-val DefaultAccent = Color(0xFFB33A2BL)
+// Modern Black & White Flat Streamlined Palette
+val MonoBlack = Color(0xFF0A0A0AL)
+val MonoCharcoal = Color(0xFF1A1A1AL)
+val MonoWhite = Color(0xFFFFFFFFL)
+val MonoSurfaceLight = Color(0xFFFAFAFAL)
+val MonoPillLight = Color(0xFFF1F1F1L)
+val MonoMutedLight = Color(0xFF666666L)
+val MonoBorderLight = Color(0xFFE4E4E4L)
+
+val MonoNight = Color(0xFF090909L)
+val MonoSurfaceDark = Color(0xFF121212L)
+val MonoPillDark = Color(0xFF1D1D1DL)
+val MonoMutedDark = Color(0xFF9E9E9EL)
+val MonoBorderDark = Color(0xFF2B2B2BL)
+
+val DefaultAccent = MonoBlack
 
 data class ZeyaoColors(
     val accent: Color,
@@ -49,85 +56,85 @@ fun ZeyaoTheme(
     }
     val scheme = when {
         highContrast -> darkColorScheme(
-            primary = Color.White,
+            primary = MonoWhite,
             onPrimary = Color.Black,
-            secondary = Color.White,
+            secondary = MonoWhite,
             onSecondary = Color.Black,
             background = Color.Black,
-            onBackground = Color.White,
+            onBackground = MonoWhite,
             surface = Color.Black,
-            onSurface = Color.White,
-            surfaceVariant = Color(0xFF111111L),
-            onSurfaceVariant = Color.White,
-            outline = Color.White,
+            onSurface = MonoWhite,
+            surfaceVariant = Color(0xFF141414L),
+            onSurfaceVariant = MonoWhite,
+            outline = MonoWhite,
             error = Color(0xFFFF6B6BL),
             onError = Color.Black,
         )
         dark -> darkColorScheme(
-            primary = accent,
-            onPrimary = Color.White,
-            secondary = Cream,
-            onSecondary = Night,
-            background = Night,
-            onBackground = Cream,
-            surface = NightElevated,
-            onSurface = Cream,
-            surfaceVariant = Color(0xFF2C241FL),
-            onSurfaceVariant = Color(0xFFC9BDB0L),
-            outline = Color(0xFF5A4E46L),
-            error = Color(0xFFE07070L),
-            onError = Color.White,
+            primary = MonoWhite,
+            onPrimary = MonoBlack,
+            secondary = MonoWhite,
+            onSecondary = MonoBlack,
+            background = MonoNight,
+            onBackground = MonoWhite,
+            surface = MonoSurfaceDark,
+            onSurface = MonoWhite,
+            surfaceVariant = MonoPillDark,
+            onSurfaceVariant = MonoMutedDark,
+            outline = MonoBorderDark,
+            error = Color(0xFFFF6B6BL),
+            onError = MonoBlack,
         )
         else -> lightColorScheme(
-            primary = accent,
-            onPrimary = Color.White,
-            secondary = InkSoft,
-            onSecondary = Paper,
-            background = Paper,
-            onBackground = Ink,
-            surface = Color(0xFFFFFBF4L),
-            onSurface = Ink,
-            surfaceVariant = PaperDim,
-            onSurfaceVariant = InkSoft,
-            outline = Color(0xFFC9BBA8L),
-            error = Color(0xFF9B2C22L),
-            onError = Color.White,
+            primary = MonoBlack,
+            onPrimary = MonoWhite,
+            secondary = MonoCharcoal,
+            onSecondary = MonoWhite,
+            background = MonoWhite,
+            onBackground = MonoBlack,
+            surface = MonoSurfaceLight,
+            onSurface = MonoBlack,
+            surfaceVariant = MonoPillLight,
+            onSurfaceVariant = MonoMutedLight,
+            outline = MonoBorderLight,
+            error = Color(0xFFC62828L),
+            onError = MonoWhite,
         )
     }
     val compact = typographyStyle == TypographyStyle.COMPACT
-    val typography = if (compact) compactTypography() else editorialTypography()
-    CompositionLocalProvider(LocalZeyaoColors provides ZeyaoColors(accent, dark)) {
+    val typography = if (compact) compactTypography() else streamlinedTypography()
+    val effectiveAccent = if (dark) MonoWhite else MonoBlack
+    CompositionLocalProvider(LocalZeyaoColors provides ZeyaoColors(effectiveAccent, dark)) {
         MaterialTheme(colorScheme = scheme, typography = typography, content = content)
     }
 }
 
-private fun editorialTypography(): Typography {
-    val serif = FontFamily.Serif
+private fun streamlinedTypography(): Typography {
     val sans = FontFamily.SansSerif
     return Typography(
-        displayLarge = TextStyle(fontFamily = serif, fontWeight = FontWeight.SemiBold, fontSize = 48.sp, lineHeight = 56.sp),
-        displayMedium = TextStyle(fontFamily = serif, fontWeight = FontWeight.SemiBold, fontSize = 40.sp, lineHeight = 48.sp),
-        headlineLarge = TextStyle(fontFamily = serif, fontWeight = FontWeight.SemiBold, fontSize = 32.sp, lineHeight = 40.sp),
-        headlineMedium = TextStyle(fontFamily = serif, fontWeight = FontWeight.Medium, fontSize = 26.sp, lineHeight = 34.sp),
-        headlineSmall = TextStyle(fontFamily = serif, fontWeight = FontWeight.Medium, fontSize = 22.sp, lineHeight = 28.sp),
-        titleLarge = TextStyle(fontFamily = serif, fontWeight = FontWeight.Medium, fontSize = 20.sp, lineHeight = 28.sp),
-        titleMedium = TextStyle(fontFamily = sans, fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.1.sp),
-        titleSmall = TextStyle(fontFamily = sans, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
+        displayLarge = TextStyle(fontFamily = sans, fontWeight = FontWeight.Bold, fontSize = 42.sp, lineHeight = 48.sp, letterSpacing = (-1.0).sp),
+        displayMedium = TextStyle(fontFamily = sans, fontWeight = FontWeight.Bold, fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = (-0.8).sp),
+        headlineLarge = TextStyle(fontFamily = sans, fontWeight = FontWeight.SemiBold, fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.5).sp),
+        headlineMedium = TextStyle(fontFamily = sans, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 30.sp, letterSpacing = (-0.4).sp),
+        headlineSmall = TextStyle(fontFamily = sans, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 27.sp, letterSpacing = (-0.2).sp),
+        titleLarge = TextStyle(fontFamily = sans, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp, letterSpacing = (-0.2).sp),
+        titleMedium = TextStyle(fontFamily = sans, fontWeight = FontWeight.Medium, fontSize = 15.sp, lineHeight = 22.sp, letterSpacing = 0.sp),
+        titleSmall = TextStyle(fontFamily = sans, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 18.sp),
         bodyLarge = TextStyle(fontFamily = sans, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 26.sp),
-        bodyMedium = TextStyle(fontFamily = sans, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 22.sp),
-        bodySmall = TextStyle(fontFamily = sans, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 18.sp),
-        labelLarge = TextStyle(fontFamily = sans, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.2.sp),
-        labelMedium = TextStyle(fontFamily = sans, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
-        labelSmall = TextStyle(fontFamily = sans, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp),
+        bodyMedium = TextStyle(fontFamily = sans, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 21.sp),
+        bodySmall = TextStyle(fontFamily = sans, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 17.sp),
+        labelLarge = TextStyle(fontFamily = sans, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, lineHeight = 18.sp, letterSpacing = 0.2.sp),
+        labelMedium = TextStyle(fontFamily = sans, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.1.sp),
+        labelSmall = TextStyle(fontFamily = sans, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.2.sp),
     )
 }
 
 private fun compactTypography(): Typography {
-    val base = editorialTypography()
+    val base = streamlinedTypography()
     return base.copy(
-        displayLarge = base.displayLarge.copy(fontSize = 40.sp, lineHeight = 48.sp),
-        headlineLarge = base.headlineLarge.copy(fontSize = 28.sp, lineHeight = 34.sp),
+        displayLarge = base.displayLarge.copy(fontSize = 36.sp, lineHeight = 42.sp),
+        headlineLarge = base.headlineLarge.copy(fontSize = 25.sp, lineHeight = 30.sp),
         bodyLarge = base.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp),
-        titleLarge = base.titleLarge.copy(fontSize = 18.sp, lineHeight = 24.sp),
+        titleLarge = base.titleLarge.copy(fontSize = 16.sp, lineHeight = 22.sp),
     )
 }

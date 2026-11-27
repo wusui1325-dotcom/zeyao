@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,9 +26,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,12 +34,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import com.wusper.zeyao.R
 import com.wusper.zeyao.ZeyaoApp
 import com.wusper.zeyao.ai.AiClientFactory
@@ -52,8 +50,11 @@ import com.wusper.zeyao.data.AppLanguage
 import com.wusper.zeyao.data.AppLocale
 import com.wusper.zeyao.ui.components.BrandMark
 import com.wusper.zeyao.ui.components.ChoiceRow
+import com.wusper.zeyao.ui.components.IconBadge
+import com.wusper.zeyao.ui.components.InputShape
 import com.wusper.zeyao.ui.components.PrimaryButton
 import com.wusper.zeyao.ui.components.QuietButton
+import com.wusper.zeyao.ui.components.ZeyaoIcons
 import kotlinx.coroutines.launch
 
 enum class OnboardingStep { LANGUAGE, PROVIDER, KEY, LOADING }
@@ -68,7 +69,7 @@ fun OnboardingRoute(
     val scope = rememberCoroutineScope()
     var step by remember {
         mutableStateOf(
-            if (reconfigure) OnboardingStep.PROVIDER else OnboardingStep.LANGUAGE
+            if (reconfigure) OnboardingStep.PROVIDER else OnboardingStep.LANGUAGE,
         )
     }
     var selected by remember { mutableStateOf<AiProvider?>(null) }
@@ -87,7 +88,6 @@ fun OnboardingRoute(
             try {
                 val client = AiClientFactory.create(provider)
                 client.initialize(apiKey)
-                // Persist key only in encrypted prefs; persist provider + default params via settings.
                 app.secrets.setApiKey(provider.id, apiKey)
                 app.settings.update {
                     it.copy(
@@ -96,9 +96,6 @@ fun OnboardingRoute(
                         interceptEnabled = true,
                     )
                 }
-                // Default generation parameters are the app-wide GenerationParams.DEFAULT
-                // (thinking off, reasoning high, temperature 1.2, max tokens 1000) and
-                // are applied by each vendor client on every request.
                 @Suppress("UNUSED_VARIABLE")
                 val defaults = GenerationParams.DEFAULT
                 onFinished()
@@ -115,10 +112,11 @@ fun OnboardingRoute(
     Box(
         Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .navigationBarsPadding()
             .imePadding()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+            .padding(horizontal = 24.dp, vertical = 18.dp),
     ) {
         AnimatedContent(
             targetState = step,
@@ -179,13 +177,13 @@ fun OnboardingRoute(
 private fun LanguageStep(onSelect: (AppLanguage) -> Unit) {
     Column(Modifier.fillMaxSize()) {
         BrandMark()
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(18.dp))
         Text(
             text = stringResource(R.string.lang_title),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             text = stringResource(R.string.lang_hint),
             style = MaterialTheme.typography.bodyMedium,
@@ -200,6 +198,7 @@ private fun LanguageStep(onSelect: (AppLanguage) -> Unit) {
                 ChoiceRow(
                     title = lang.nativeName,
                     subtitle = null,
+                    icon = ZeyaoIcons.Globe,
                     selected = false,
                     onClick = { onSelect(lang) },
                 )
@@ -217,19 +216,19 @@ private fun ProviderStep(
 ) {
     Column(Modifier.fillMaxSize()) {
         BrandMark()
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(18.dp))
         Text(
             text = if (reconfigure) stringResource(R.string.onboard_reconfigure_title) else stringResource(R.string.onboard_title),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             text = stringResource(R.string.onboard_provider_hint),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(22.dp))
         Column(
             Modifier
                 .weight(1f)
@@ -240,6 +239,7 @@ private fun ProviderStep(
                 ChoiceRow(
                     title = provider.displayName,
                     subtitle = if (provider == AiProvider.DEEPSEEK) "建議首選，回應較快" else null,
+                    icon = ZeyaoIcons.Sparkle,
                     selected = selected == provider,
                     onClick = { onSelect(provider) },
                 )
@@ -248,6 +248,7 @@ private fun ProviderStep(
         Spacer(Modifier.height(16.dp))
         PrimaryButton(
             text = stringResource(R.string.continue_action),
+            icon = ZeyaoIcons.ArrowRight,
             onClick = onContinue,
             enabled = selected != null,
         )
@@ -266,19 +267,21 @@ private fun KeyStep(
 ) {
     Column(Modifier.fillMaxSize()) {
         BrandMark(small = true)
-        Spacer(Modifier.height(28.dp))
-        Text(stringResource(R.string.onboard_key_title, provider.displayName), style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(26.dp))
+        Text(stringResource(R.string.onboard_key_title, provider.displayName), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         Text(
-            "金鑰以加密方式存在本機，不會寫入原始碼、日誌或雲端。擇要只會用它向 ${provider.displayName} 請求摘要。",
+            stringResource(R.string.onboard_key_hint, provider.displayName),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(24.dp))
         OutlinedTextField(
             value = key,
             onValueChange = onKeyChange,
             modifier = Modifier.fillMaxWidth(),
+            shape = InputShape,
+            leadingIcon = { Icon(ZeyaoIcons.Key, contentDescription = null, modifier = Modifier.size(18.dp)) },
             label = { Text(stringResource(R.string.api_key)) },
             placeholder = { Text(provider.keyHint) },
             singleLine = true,
@@ -287,16 +290,26 @@ private fun KeyStep(
             trailingIcon = {
                 IconButton(onClick = onToggle) {
                     Icon(
-                        imageVector = if (showKey) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                        contentDescription = if (showKey) "隱藏金鑰" else "顯示金鑰",
+                        imageVector = if (showKey) ZeyaoIcons.EyeOff else ZeyaoIcons.Eye,
+                        contentDescription = stringResource(if (showKey) R.string.hide_key else R.string.show_key),
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             },
         )
         Spacer(Modifier.weight(1f))
-        PrimaryButton(text = "繼續", onClick = onContinue, enabled = key.isNotBlank())
-        Spacer(Modifier.height(8.dp))
-        QuietButton(text = "返回", onClick = onBack)
+        PrimaryButton(
+            text = stringResource(R.string.continue_action),
+            icon = ZeyaoIcons.ArrowRight,
+            onClick = onContinue,
+            enabled = key.isNotBlank(),
+        )
+        Spacer(Modifier.height(10.dp))
+        QuietButton(
+            text = stringResource(R.string.back),
+            icon = ZeyaoIcons.ArrowLeft,
+            onClick = onBack,
+        )
     }
 }
 
@@ -314,33 +327,35 @@ private fun LoadingStep(
         verticalArrangement = Arrangement.Center,
     ) {
         BrandMark(small = true)
-        Spacer(Modifier.height(36.dp))
+        Spacer(Modifier.height(32.dp))
         if (error == null) {
             CircularProgressIndicator(
                 modifier = Modifier.size(36.dp),
                 color = MaterialTheme.colorScheme.primary,
-                strokeWidth = 3.dp,
+                strokeWidth = 2.5.dp,
             )
             Spacer(Modifier.height(24.dp))
-            Text(message, style = MaterialTheme.typography.titleMedium)
+            Text(message, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(8.dp))
             Text(
                 "正在寫入預設參數：高強度、關閉深度思考、溫度 1.2、上限 1000 tokens。",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            Text(stringResource(R.string.init_incomplete), style = MaterialTheme.typography.headlineSmall)
-            Spacer(Modifier.height(12.dp))
+            IconBadge(icon = ZeyaoIcons.Alert, size = 48.dp, iconSize = 22.dp)
+            Spacer(Modifier.height(14.dp))
+            Text(stringResource(R.string.init_incomplete), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
             Text(
                 error,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
             )
-            Spacer(Modifier.height(32.dp))
-            PrimaryButton(text = "重試", onClick = onRetry)
-            Spacer(Modifier.height(8.dp))
-            QuietButton(text = "返回修改金鑰", onClick = onBack)
+            Spacer(Modifier.height(28.dp))
+            PrimaryButton(text = stringResource(R.string.retry), icon = ZeyaoIcons.Refresh, onClick = onRetry)
+            Spacer(Modifier.height(10.dp))
+            QuietButton(text = stringResource(R.string.back), icon = ZeyaoIcons.ArrowLeft, onClick = onBack)
         }
         if (busy) {
             // Keep the page as a full-page loader; buttons hidden while in flight.

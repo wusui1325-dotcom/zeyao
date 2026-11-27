@@ -1,7 +1,9 @@
 package com.wusper.zeyao.ui.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,15 +11,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,8 +33,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -46,8 +48,11 @@ import com.wusper.zeyao.ai.AiProvider
 import com.wusper.zeyao.data.AppSettings
 import com.wusper.zeyao.data.ModelRole
 import com.wusper.zeyao.data.ModelRoleSettings
+import com.wusper.zeyao.ui.components.FlatCard
+import com.wusper.zeyao.ui.components.InputShape
 import com.wusper.zeyao.ui.components.SectionLabel
 import com.wusper.zeyao.ui.components.TopAction
+import com.wusper.zeyao.ui.components.ZeyaoIcons
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -60,6 +65,7 @@ fun ModelParamsScreen(
     val app = ZeyaoApp.instance
     val provider = AiProvider.fromId(settings.providerId)
     val focus = LocalFocusManager.current
+    val colors = MaterialTheme.colorScheme
     var sharedKey by remember(settings.providerId) {
         mutableStateOf(app.secrets.getApiKey(settings.providerId).orEmpty())
     }
@@ -100,19 +106,30 @@ fun ModelParamsScreen(
     Column(
         Modifier
             .fillMaxSize()
+            .background(colors.background)
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TopAction(stringResource(R.string.back), onClick = {
-                persistPending()
-                onBack()
-            })
+            TopAction(
+                text = stringResource(R.string.back),
+                icon = ZeyaoIcons.ArrowLeft,
+                onClick = {
+                    persistPending()
+                    onBack()
+                },
+            )
             Spacer(Modifier.weight(1f))
-            Text(stringResource(R.string.model_and_params), style = MaterialTheme.typography.titleLarge)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(ZeyaoIcons.Sliders, contentDescription = null, tint = colors.onBackground, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.model_and_params), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
             Spacer(Modifier.weight(1f))
             Spacer(Modifier.width(64.dp))
         }
@@ -120,31 +137,35 @@ fun ModelParamsScreen(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 18.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
                 stringResource(R.string.model_params_provider_hint, provider.displayName),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(8.dp))
-            SectionLabel(stringResource(R.string.section_shared_key))
-            Text(
-                stringResource(R.string.shared_key_hint),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colors.onSurfaceVariant,
             )
-            KeyField(
-                value = sharedKey,
-                onValueChange = { sharedKey = it },
-                label = stringResource(R.string.api_key),
-                supporting = stringResource(R.string.shared_key_hint),
-                onSave = { app.secrets.setApiKey(settings.providerId, sharedKey) },
-            )
+
+            SectionLabel(stringResource(R.string.section_shared_key), icon = ZeyaoIcons.Key)
+            FlatCard(padding = PaddingValues(16.dp)) {
+                Text(
+                    stringResource(R.string.shared_key_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                KeyField(
+                    value = sharedKey,
+                    onValueChange = { sharedKey = it },
+                    label = stringResource(R.string.api_key),
+                    supporting = stringResource(R.string.shared_key_hint),
+                    onSave = { app.secrets.setApiKey(settings.providerId, sharedKey) },
+                )
+            }
 
             RoleSection(
                 title = stringResource(R.string.role_search),
+                icon = ZeyaoIcons.Search,
                 hint = stringResource(R.string.role_search_hint),
                 intensityHint = stringResource(R.string.intensity_hint_search),
                 model = searchModel,
@@ -168,6 +189,7 @@ fun ModelParamsScreen(
 
             RoleSection(
                 title = stringResource(R.string.role_summarize),
+                icon = ZeyaoIcons.Sparkle,
                 hint = stringResource(R.string.role_summarize_hint),
                 intensityHint = stringResource(R.string.intensity_hint_summarize),
                 model = summarizeModel,
@@ -197,6 +219,7 @@ fun ModelParamsScreen(
 
             RoleSection(
                 title = stringResource(R.string.role_verify),
+                icon = ZeyaoIcons.ShieldCheck,
                 hint = stringResource(R.string.role_verify_hint),
                 intensityHint = stringResource(R.string.intensity_hint_verify),
                 model = verifyModel,
@@ -225,6 +248,7 @@ fun ModelParamsScreen(
 @Composable
 private fun RoleSection(
     title: String,
+    icon: ImageVector,
     hint: String,
     intensityHint: String,
     model: String,
@@ -239,52 +263,67 @@ private fun RoleSection(
     onApiKeyChange: (String) -> Unit,
     onApiKeySave: () -> Unit,
 ) {
-    Spacer(Modifier.height(16.dp))
-    SectionLabel(title)
-    Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    OutlinedTextField(
-        value = model,
-        onValueChange = onModelChange,
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text(stringResource(R.string.model_id_label)) },
-        placeholder = { Text(stringResource(R.string.model_id_placeholder, modelPlaceholder)) },
-        supportingText = { Text(stringResource(R.string.model_id_hint)) },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { onModelSave() }),
-    )
-    var temp by remember(temperature) { mutableFloatStateOf(temperature) }
-    Text(
-        stringResource(R.string.temperature_label, String.format(Locale.US, "%.1f", temp)),
-        style = MaterialTheme.typography.bodyMedium,
-    )
-    Slider(
-        value = temp,
-        onValueChange = { temp = it },
-        onValueChangeFinished = { onTemperatureSave(temp) },
-        valueRange = 0f..2f,
-        steps = 19,
-    )
-    var intensityValue by remember(intensity) { mutableFloatStateOf(intensity) }
-    Text(
-        stringResource(R.string.intensity_label, intensityValue.roundToInt()),
-        style = MaterialTheme.typography.bodyMedium,
-    )
-    Slider(
-        value = intensityValue,
-        onValueChange = { intensityValue = it },
-        onValueChangeFinished = { onIntensitySave(intensityValue.roundToInt()) },
-        valueRange = 1f..5f,
-        steps = 3,
-    )
-    Text(intensityHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    KeyField(
-        value = apiKey,
-        onValueChange = onApiKeyChange,
-        label = stringResource(R.string.role_api_key_label),
-        supporting = stringResource(R.string.role_api_key_hint),
-        onSave = onApiKeySave,
-    )
+    val colors = MaterialTheme.colorScheme
+    SectionLabel(title, icon = icon)
+    FlatCard(padding = PaddingValues(16.dp)) {
+        Text(hint, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = model,
+            onValueChange = onModelChange,
+            modifier = Modifier.fillMaxWidth(),
+            shape = InputShape,
+            leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            label = { Text(stringResource(R.string.model_id_label)) },
+            placeholder = { Text(stringResource(R.string.model_id_placeholder, modelPlaceholder)) },
+            supportingText = { Text(stringResource(R.string.model_id_hint)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { onModelSave() }),
+        )
+        Spacer(Modifier.height(8.dp))
+        var temp by remember(temperature) { mutableFloatStateOf(temperature) }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(ZeyaoIcons.Sliders, contentDescription = null, tint = colors.onSurface, modifier = Modifier.size(15.dp))
+            Text(
+                stringResource(R.string.temperature_label, String.format(Locale.US, "%.1f", temp)),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        Slider(
+            value = temp,
+            onValueChange = { temp = it },
+            onValueChangeFinished = { onTemperatureSave(temp) },
+            valueRange = 0f..2f,
+            steps = 19,
+        )
+        var intensityValue by remember(intensity) { mutableFloatStateOf(intensity) }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(ZeyaoIcons.Bolt, contentDescription = null, tint = colors.onSurface, modifier = Modifier.size(15.dp))
+            Text(
+                stringResource(R.string.intensity_label, intensityValue.roundToInt()),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        Slider(
+            value = intensityValue,
+            onValueChange = { intensityValue = it },
+            onValueChangeFinished = { onIntensitySave(intensityValue.roundToInt()) },
+            valueRange = 1f..5f,
+            steps = 3,
+        )
+        Text(intensityHint, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
+        KeyField(
+            value = apiKey,
+            onValueChange = onApiKeyChange,
+            label = stringResource(R.string.role_api_key_label),
+            supporting = stringResource(R.string.role_api_key_hint),
+            onSave = onApiKeySave,
+        )
+    }
 }
 
 @Composable
@@ -300,6 +339,8 @@ private fun KeyField(
         value = value,
         onValueChange = onValueChange,
         modifier = Modifier.fillMaxWidth(),
+        shape = InputShape,
+        leadingIcon = { Icon(ZeyaoIcons.Key, contentDescription = null, modifier = Modifier.size(18.dp)) },
         label = { Text(label) },
         supportingText = { Text(supporting) },
         singleLine = true,
@@ -309,8 +350,9 @@ private fun KeyField(
         trailingIcon = {
             IconButton(onClick = { visible = !visible }) {
                 Icon(
-                    imageVector = if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                    imageVector = if (visible) ZeyaoIcons.EyeOff else ZeyaoIcons.Eye,
                     contentDescription = stringResource(if (visible) R.string.hide_key else R.string.show_key),
+                    modifier = Modifier.size(18.dp),
                 )
             }
         },
