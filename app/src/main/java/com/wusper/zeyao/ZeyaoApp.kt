@@ -2,14 +2,13 @@ package com.wusper.zeyao
 
 import android.app.Activity
 import android.app.Application
-import android.os.Bundle
 import android.content.Context
+import android.os.Bundle
 import com.wusper.zeyao.data.AppLocale
 import com.wusper.zeyao.data.RecordRepository
 import com.wusper.zeyao.data.SecretStore
 import com.wusper.zeyao.data.SettingsRepository
 import com.wusper.zeyao.intercept.InterceptController
-import com.wusper.zeyao.mitm.LocalCa
 
 class ZeyaoApp : Application() {
     lateinit var settings: SettingsRepository
@@ -30,7 +29,6 @@ class ZeyaoApp : Application() {
         secrets = SecretStore(this)
         records = RecordRepository(this)
         AppLocale.hydrateFromSettings(this, settings)
-        runCatching { LocalCa.ensure(this) }
         InterceptController.attach(this)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityResumed(activity: Activity) {

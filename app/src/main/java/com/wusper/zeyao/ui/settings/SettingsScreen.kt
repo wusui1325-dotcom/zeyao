@@ -28,6 +28,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.Slider
@@ -680,6 +681,12 @@ private fun AppPickerDialog(
     onConfirm: (Set<String>) -> Unit,
 ) {
     var current by remember { mutableStateOf(selected) }
+    var search by remember { mutableStateOf("") }
+    val filteredApps = remember(apps, search) {
+        val q = search.trim()
+        if (q.isBlank()) apps
+        else apps.filter { it.label.contains(q, true) || it.packageName.contains(q, true) }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.section_apps)) },
@@ -691,11 +698,18 @@ private fun AppPickerDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = search,
+                    onValueChange = { search = it },
+                    placeholder = { Text(stringResource(R.string.search_apps)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Row {
                     TextButton(onClick = { current = emptySet() }) { Text(stringResource(R.string.apps_clear)) }
                 }
-                LazyColumn(Modifier.height(360.dp)) {
-                    items(apps, key = { it.packageName }) { app ->
+                LazyColumn(Modifier.height(320.dp)) {
+                    items(filteredApps, key = { it.packageName }) { app ->
                         val checked = app.packageName in current
                         Row(
                             Modifier

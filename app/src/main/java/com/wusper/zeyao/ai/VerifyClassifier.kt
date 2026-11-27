@@ -5,7 +5,7 @@ import com.wusper.zeyao.data.ModelRole
 import com.wusper.zeyao.data.ModelRoleSettings
 import com.wusper.zeyao.data.NewsHosts
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 
 /**
@@ -21,6 +21,7 @@ object VerifyClassifier {
         settings: AppSettings,
         apiKey: String?,
         client: OkHttpClient = HttpClients.classify,
+        timeoutMs: Long = TIMEOUT_MS,
     ): Boolean? {
         val key = apiKey.orEmpty()
         val knownNews = NewsHosts.shouldInterceptUrl(url, loose = true)
@@ -30,7 +31,7 @@ object VerifyClassifier {
         val provider = AiProvider.fromId(settings.providerId)
         val verify = ModelRoleSettings.resolve(ModelRole.VERIFY, settings, provider)
         return try {
-            val result = withTimeout(TIMEOUT_MS) {
+            val result = withTimeoutOrNull(timeoutMs) {
                 NewsClassifier.classify(
                     provider = provider,
                     apiKey = key,
@@ -43,8 +44,12 @@ object VerifyClassifier {
                     client = client,
                 )
             }
-            NewsClassifier.remember(canonical, result)
-            result
+            if (result != null) {
+                NewsClassifier.remember(canonical, result)
+                result
+            } else {
+                if (knownNews) true else null
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {

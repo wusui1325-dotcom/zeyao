@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
@@ -89,6 +90,10 @@ fun MainScreen(
     val snackbar = remember { SnackbarHostState() }
     val deletedLabel = stringResource(R.string.record_deleted)
     val undoLabel = stringResource(R.string.undo)
+    val pinnedCount = remember(records) { records.count { it.pinned } }
+    val failedCount = remember(records) {
+        records.count { it.status == RecordStatus.FAILED || it.status == RecordStatus.CANCELLED }
+    }
     val filtered = remember(records, query, filter) {
         val q = query.trim()
         records.asSequence()
@@ -166,11 +171,26 @@ fun MainScreen(
                 Spacer(Modifier.height(28.dp))
                 Text(stringResource(R.string.recent_records), style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
+                val clearCd = stringResource(R.string.clear_search)
                 TextField(
                     value = query,
                     onValueChange = { query = it },
                     placeholder = { Text(stringResource(R.string.search_records)) },
                     singleLine = true,
+                    trailingIcon = if (query.isNotEmpty()) {
+                        {
+                            Text(
+                                "✕",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = colors.onSurfaceVariant,
+                                modifier = Modifier
+                                    .semantics { contentDescription = clearCd }
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { query = "" }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                            )
+                        }
+                    } else null,
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = colors.surfaceVariant.copy(alpha = 0.4f),
                         unfocusedContainerColor = colors.surfaceVariant.copy(alpha = 0.3f),
@@ -182,18 +202,21 @@ fun MainScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    val allLabel = stringResource(R.string.filter_all)
+                    val pinnedPillLabel = stringResource(R.string.filter_pinned)
+                    val failedPillLabel = stringResource(R.string.filter_failed)
                     FilterPill(
-                        label = stringResource(R.string.filter_all),
+                        label = if (records.isNotEmpty()) "$allLabel ${records.size}" else allLabel,
                         selected = filter == RecordFilter.ALL,
                         onClick = { filter = RecordFilter.ALL },
                     )
                     FilterPill(
-                        label = stringResource(R.string.filter_pinned),
+                        label = if (pinnedCount > 0) "$pinnedPillLabel $pinnedCount" else pinnedPillLabel,
                         selected = filter == RecordFilter.PINNED,
                         onClick = { filter = RecordFilter.PINNED },
                     )
                     FilterPill(
-                        label = stringResource(R.string.filter_failed),
+                        label = if (failedCount > 0) "$failedPillLabel $failedCount" else failedPillLabel,
                         selected = filter == RecordFilter.FAILED,
                         onClick = { filter = RecordFilter.FAILED },
                     )
@@ -537,14 +560,16 @@ fun RecordDetailScreen(
                 TextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.delete)) }
             }
             Spacer(Modifier.height(12.dp))
-            Text(
-                record.summary.ifBlank {
-                    stringResource(
-                        if (record.status == RecordStatus.GENERATING) R.string.still_generating else R.string.no_summary,
-                    )
-                },
-                style = bodyStyle,
-            )
+            SelectionContainer {
+                Text(
+                    record.summary.ifBlank {
+                        stringResource(
+                            if (record.status == RecordStatus.GENERATING) R.string.still_generating else R.string.no_summary,
+                        )
+                    },
+                    style = bodyStyle,
+                )
+            }
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -593,10 +618,12 @@ internal fun copyRecord(context: android.content.Context, record: SummaryRecord)
     Toast.makeText(context, context.getString(R.string.copied), Toast.LENGTH_SHORT).show()
 }
 
+private val recordTimeFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+
 internal fun formatTime(epochMs: Long): String {
-    val zone = ZoneId.systemDefault()
-    return DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
-        .withZone(zone)
+    return recordTimeFormatter
+        .withZone(ZoneId.systemDefault())
         .format(Instant.ofEpochMilli(epochMs))
 }
 

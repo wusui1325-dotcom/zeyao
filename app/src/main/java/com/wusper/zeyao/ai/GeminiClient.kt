@@ -5,12 +5,15 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
+import okhttp3.Call
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Google Gemini generateContent (SSE via alt=sse).
@@ -31,7 +34,7 @@ class GeminiClient : AiClient {
             .addQueryParameter("key", apiKey)
             .build()
         val request = Request.Builder().url(url).get().build()
-        HttpClients.init.newCall(request).execute().use { response ->
+        HttpClients.init.newCall(request).await().use { response ->
             if (!response.isSuccessful) {
                 throw AiInitException(friendlyHttpError(response.code, "Google Gemini"))
             }
@@ -47,23 +50,35 @@ class GeminiClient : AiClient {
         params: GenerationParams,
     ): Flow<String> = callbackFlow {
         val models = AiProvider.fallbackList(AiProvider.GEMINI, params.fallbackModels)
+        val activeCall = AtomicReference<Call?>(null)
+        val cancelled = AtomicBoolean(false)
         val worker = Thread({
             var lastError: Exception? = null
             for ((index, model) in models.withIndex()) {
+                if (cancelled.get()) break
                 try {
-                    streamOnce(apiKey, title, url, articleText, params, model) { trySend(it) }
+                    streamOnce(apiKey, title, url, articleText, params, model, activeCall) { trySend(it) }
                     lastError = null
                     break
                 } catch (e: Exception) {
+                    if (cancelled.get()) {
+                        lastError = null
+                        break
+                    }
                     lastError = e
-                    if (index == models.lastIndex) break
-                    if (e is AiInitException) continue
+                    val retryable = e is ModelUnavailable && index < models.lastIndex
+                    if (!retryable) break
                 }
             }
-            if (lastError != null) close(lastError) else close()
+            activeCall.set(null)
+            if (lastError != null && !cancelled.get()) close(lastError) else close()
         }, "gemini-stream")
         worker.start()
-        awaitClose { worker.interrupt() }
+        awaitClose {
+            cancelled.set(true)
+            activeCall.getAndSet(null)?.cancel()
+            worker.interrupt()
+        }
     }
 
     private fun streamOnce(
@@ -73,6 +88,7 @@ class GeminiClient : AiClient {
         articleText: String,
         params: GenerationParams,
         model: String,
+        activeCall: AtomicReference<Call?>,
         onDelta: (String) -> Unit,
     ) {
         val generationConfig = JSONObject()
@@ -109,7 +125,12 @@ class GeminiClient : AiClient {
             .header("Content-Type", "application/json")
             .post(body.toRequestBody(JSON))
             .build()
-        HttpClients.stream.newCall(request).execute().use { response ->
+        val call = HttpClients.stream.newCall(request)
+        activeCall.set(call)
+        call.execute().use { response ->
+            if (response.code == 400 || response.code == 404) {
+                throw ModelUnavailable(friendlyHttpError(response.code, "Google Gemini"))
+            }
             if (!response.isSuccessful) {
                 throw AiInitException(friendlyHttpError(response.code, "Google Gemini"))
             }
@@ -119,6 +140,8 @@ class GeminiClient : AiClient {
             }
         }
     }
+
+    private class ModelUnavailable(message: String) : AiInitException(message)
 
     private fun extractGeminiDelta(data: String): String = runCatching {
         val obj = JSONObject(data)

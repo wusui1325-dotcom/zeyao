@@ -36,6 +36,7 @@ import com.wusper.zeyao.mitm.PageCapture
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -43,6 +44,8 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -89,7 +92,7 @@ object InterceptController {
     private val urlCooldown = UrlCooldownManager()
     private val urlDebouncer = UrlDebouncer()
     private val hostPassthroughUntil = ConcurrentHashMap<String, Long>()
-    private val holds = ConcurrentHashMap<String, MutableList<HeldConnection>>()
+    private val holds = ConcurrentHashMap<String, CopyOnWriteArrayList<HeldConnection>>()
     private val classifyJobs = ConcurrentHashMap<String, Job>()
     private val classifyResults = ConcurrentHashMap<String, CompletableDeferred<VerifyOutcome>>()
 
@@ -138,8 +141,6 @@ object InterceptController {
 
     fun attach(application: ZeyaoApp) {
         app = application
-        runCatching { LocalCa.ensure(application) }
-        refreshCaInstalled()
         scope.launch {
             app.settings.settings.collect { settings ->
                 interceptArmedCached = app.settings.isInterceptArmed(settings)
@@ -148,9 +149,18 @@ object InterceptController {
                 skippedHostsCached = settings.skippedHosts
                 siteCooldownMs = settings.siteCooldownSeconds.coerceIn(10, 600).toLong() * 1000L
                 ScreenshotBuffer.enabled = settings.imageRecognitionEnabled
-                refreshCaInstalled()
+                if (settings.httpsDecryptEnabled) {
+                    refreshCaInstalledAsync()
+                }
                 warmHotPath(settings)
             }
+        }
+    }
+
+    fun refreshCaInstalledAsync() {
+        if (!::app.isInitialized) return
+        scope.launch(Dispatchers.IO) {
+            refreshCaInstalled()
         }
     }
 
@@ -286,8 +296,8 @@ object InterceptController {
             wrapped.release()
             return false
         }
-        if (host.isNotBlank()) holds.getOrPut(host) { mutableListOf() }.add(wrapped)
-        holds.getOrPut("url:" + NewsHosts.canonicalUrl(clean)) { mutableListOf() }.add(wrapped)
+        if (host.isNotBlank()) holds.getOrPut(host) { CopyOnWriteArrayList() }.add(wrapped)
+        holds.getOrPut("url:" + NewsHosts.canonicalUrl(clean)) { CopyOnWriteArrayList() }.add(wrapped)
         beginVerify(clean, title = "", packageName = null, startFrom = null, handoffIfNotNews = false)
         return true
     }
@@ -480,7 +490,7 @@ object InterceptController {
             connection.release()
             return
         }
-        holds.getOrPut(key) { mutableListOf() }.add(connection)
+        holds.getOrPut(key) { CopyOnWriteArrayList() }.add(connection)
     }
 
     fun startOrRefine(
@@ -628,33 +638,14 @@ object InterceptController {
                 fail(id, errorString(com.wusper.zeyao.R.string.no_article_url_still_enter))
                 return@launch
             }
-            var captured = PageCapture.get(workingUrl)
-            if (captured == null && isHttpsDecryptActive()) {
-                val waitUntil = SystemClock.elapsedRealtime() + 2_500
-                while (captured == null && SystemClock.elapsedRealtime() < waitUntil) {
-                    delay(80)
-                    captured = PageCapture.get(workingUrl)
-                }
-            }
-            val fetched = if (captured != null) {
-                Result.success(ArticleFetcher.parse(workingUrl, captured))
-            } else {
-                runCatching { ArticleFetcher.fetch(workingUrl) }
-            }
-            val article = fetched.getOrNull()
-            if (article != null) {
-                workingTitle = article.title.ifBlank { workingTitle }
-                updateSession(id) { it.copy(title = workingTitle, url = workingUrl) }
-                app.records.update(id, title = workingTitle, url = workingUrl)
-            }
-            val settings = app.settings.cached() ?: app.settings.current()
-            // Check short-lived cache first
+            // Check short-lived cache before any network/capture wait so cache hits are instant.
             val cached = SummaryCache.get(workingUrl)
             if (cached != null && lengthOverride == null && searchOverride == null) {
                 updateSession(id) { it.copy(summary = cached, streaming = false, error = null, fromCache = true) }
                 app.records.update(id, summary = cached, title = workingTitle, status = RecordStatus.COMPLETED)
                 return@launch
             }
+            val settings = app.settings.cached() ?: app.settings.current()
             ScreenshotBuffer.enabled = settings.imageRecognitionEnabled
             val search = ModelRoleSettings.resolve(ModelRole.SEARCH, settings)
             val summarize = ModelRoleSettings.resolve(ModelRole.SUMMARIZE, settings)
@@ -665,76 +656,98 @@ object InterceptController {
                 fail(id, errorString(com.wusper.zeyao.R.string.no_api_key_still_enter))
                 return@launch
             }
-            if (article == null && fetched.exceptionOrNull() != null && NewsHosts.isBareHostUrl(workingUrl)) {
-                // Still try a brief based on host/title so the page isn't empty forever.
-            }
-            if (article == null && fetched.exceptionOrNull() != null) {
-                // Continue with whatever we have; the model may still produce a short note.
-            }
+            val effectiveSearchKey = searchKey ?: key
             try {
-                val client = AiClientFactory.create(settings.providerId)
-                var imageHint = ""
-                if (settings.imageRecognitionEnabled) {
-                    val shot = ScreenshotBuffer.previous()
-                    if (shot != null) {
+                // Overlap optional screenshot title extraction with article fetching.
+                val (article, imageHint) = coroutineScope {
+                    val articleDeferred = async {
+                        var captured = PageCapture.get(workingUrl)
+                        if (captured == null && isHttpsDecryptActive()) {
+                            val waitUntil = SystemClock.elapsedRealtime() + 2_500
+                            while (captured == null && SystemClock.elapsedRealtime() < waitUntil) {
+                                delay(80)
+                                captured = PageCapture.get(workingUrl)
+                            }
+                        }
+                        if (captured != null) {
+                            runCatching { ArticleFetcher.parse(workingUrl, captured) }.getOrNull()
+                        } else {
+                            runCatching { ArticleFetcher.fetch(workingUrl) }.getOrNull()
+                        }
+                    }
+                    val imageHintDeferred = async {
+                        if (!settings.imageRecognitionEnabled) return@async ""
+                        val shot = ScreenshotBuffer.previous() ?: return@async ""
                         val extracted = com.wusper.zeyao.ai.ImageTitleExtractor.extract(
-                            apiKey = searchKey ?: key,
+                            apiKey = effectiveSearchKey,
                             providerId = settings.providerId,
                             bitmap = shot,
                             model = search.model,
                             temperature = search.temperature,
                         )
-                        if (!extracted.isNullOrBlank()) {
-                            imageHint = "截圖辨識結果（優先標題）：$extracted\n"
+                        if (extracted.isNullOrBlank()) return@async ""
+                        buildString {
+                            append("截圖辨識結果（優先標題）：").append(extracted).append('\n')
                             if (settings.providerId == "deepseek") {
                                 val hits = com.wusper.zeyao.ai.DeepSeekSearch.search(
-                                    searchKey ?: key,
+                                    effectiveSearchKey,
                                     extracted.take(100),
                                     count = search.searchCount.coerceAtLeast(3),
                                 )
                                 val formatted = com.wusper.zeyao.ai.DeepSeekSearch.formatForPrompt(hits)
-                                if (formatted.isNotBlank()) imageHint += formatted + "\n"
+                                if (formatted.isNotBlank()) append(formatted).append('\n')
                             }
                         }
                     }
+                    articleDeferred.await() to imageHintDeferred.await()
                 }
+                if (article != null) {
+                    workingTitle = article.title.ifBlank { workingTitle }
+                    updateSession(id) { it.copy(title = workingTitle, url = workingUrl) }
+                    app.records.update(id, title = workingTitle, url = workingUrl)
+                }
+                val client = AiClientFactory.create(settings.providerId)
                 val useSearch = (searchOverride ?: settings.searchNewsEnabled) &&
                     settings.providerId == "deepseek"
-                var factSources = emptyList<com.wusper.zeyao.ai.FactChecker.Source>()
-                var factContext = ""
-                if (settings.authenticityCheckEnabled && settings.providerId == "deepseek") {
-                    factSources = com.wusper.zeyao.ai.FactChecker.check(
-                        apiKey = searchKey ?: key,
-                        providerId = settings.providerId,
-                        model = search.model,
-                        title = workingTitle,
-                        url = workingUrl,
-                        articleText = article?.text.orEmpty(),
-                        fallback = settings.searchNewsEnabled,
-                        temperature = search.temperature,
-                        maxTokens = maxOf(search.maxTokens, 200),
-                        searchCount = search.factSearchCount,
-                    )
-                    factContext = com.wusper.zeyao.ai.FactChecker.format(factSources)
-                    if (factSources.isNotEmpty()) {
-                        updateSession(id) { it.copy(sources = factSources) }
+                val useFactCheck = settings.authenticityCheckEnabled && settings.providerId == "deepseek"
+                val (factSources, searchContext) = coroutineScope {
+                    val factDeferred = async {
+                        if (!useFactCheck) emptyList()
+                        else com.wusper.zeyao.ai.FactChecker.check(
+                            apiKey = effectiveSearchKey,
+                            providerId = settings.providerId,
+                            model = search.model,
+                            title = workingTitle,
+                            url = workingUrl,
+                            articleText = article?.text.orEmpty(),
+                            fallback = settings.searchNewsEnabled,
+                            temperature = search.temperature,
+                            maxTokens = maxOf(search.maxTokens, 200),
+                            searchCount = search.factSearchCount,
+                        )
                     }
+                    val searchDeferred = async {
+                        if (!useSearch) ""
+                        else {
+                            val hits = com.wusper.zeyao.ai.DeepSeekSearch.searchForArticle(
+                                apiKey = effectiveSearchKey,
+                                title = workingTitle,
+                                url = workingUrl,
+                                articleText = article?.text.orEmpty(),
+                                model = search.model,
+                                temperature = search.temperature,
+                                maxTokens = search.maxTokens,
+                                count = search.searchCount,
+                                fallback = settings.searchNewsEnabled,
+                            )
+                            com.wusper.zeyao.ai.DeepSeekSearch.formatForPrompt(hits)
+                        }
+                    }
+                    factDeferred.await() to searchDeferred.await()
                 }
-                val searchContext = if (useSearch) {
-                    val hits = com.wusper.zeyao.ai.DeepSeekSearch.searchForArticle(
-                        apiKey = searchKey ?: key,
-                        title = workingTitle,
-                        url = workingUrl,
-                        articleText = article?.text.orEmpty(),
-                        model = search.model,
-                        temperature = search.temperature,
-                        maxTokens = search.maxTokens,
-                        count = search.searchCount,
-                        fallback = settings.searchNewsEnabled,
-                    )
-                    com.wusper.zeyao.ai.DeepSeekSearch.formatForPrompt(hits)
-                } else {
-                    ""
+                val factContext = com.wusper.zeyao.ai.FactChecker.format(factSources)
+                if (factSources.isNotEmpty()) {
+                    updateSession(id) { it.copy(sources = factSources) }
                 }
                 val articleText = buildString {
                     if (imageHint.isNotBlank()) {

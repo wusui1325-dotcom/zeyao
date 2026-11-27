@@ -17,6 +17,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +49,7 @@ fun OtherScreen(
     onLanguageChange: (AppLanguage) -> Unit,
 ) {
     var testUrl by remember { mutableStateOf("") }
+    val context = LocalContext.current
     val provider = AiProvider.fromId(currentProviderId)
     Column(
         Modifier
@@ -111,6 +114,15 @@ fun OtherScreen(
                 label = { Text(stringResource(R.string.news_url)) },
                 placeholder = { Text("https://") },
                 singleLine = true,
+                trailingIcon = {
+                    TextButton(onClick = {
+                        val cm = context.getSystemService(android.content.ClipboardManager::class.java)
+                        val clip = cm?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString()?.trim().orEmpty()
+                        if (clip.isNotBlank()) testUrl = clip
+                    }) {
+                        Text(stringResource(R.string.paste))
+                    }
+                },
             )
             Spacer(Modifier.height(12.dp))
             PrimaryButton(

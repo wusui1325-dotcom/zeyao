@@ -20,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
@@ -32,6 +33,7 @@ import kotlinx.coroutines.launch
 class VerifyActivity : Activity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var job: Job? = null
+    private var activeUrl: String = ""
     private var decided = false
     private var handoffPackage: String? = null
 
@@ -49,6 +51,11 @@ class VerifyActivity : Activity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        val incomingUrl = NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty())
+        if (!decided && activeUrl.isNotBlank() && !NewsHosts.sameArticle(activeUrl, incomingUrl)) {
+            InterceptController.cancelClassify(activeUrl)
+            InterceptController.releaseDocumentHolds(activeUrl)
+        }
         setIntent(intent)
         decided = false
         bindClassify(intent)
@@ -94,6 +101,7 @@ class VerifyActivity : Activity() {
     private fun bindClassify(intent: Intent) {
         job?.cancel()
         val url = NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty())
+        activeUrl = url
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val pkg = intent.getStringExtra(EXTRA_PACKAGE)
         val handoffIfNotNews = intent.getBooleanExtra(EXTRA_HANDOFF, true)
@@ -122,7 +130,7 @@ class VerifyActivity : Activity() {
         handoffIfNotNews: Boolean,
     ) {
         if (isFinishing || decided) return
-        val url = outcome.url.ifBlank { NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty()) }
+        val url = outcome.url.ifBlank { activeUrl.ifBlank { NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty()) } }
         when (outcome.news) {
             true -> {
                 decided = true
@@ -162,7 +170,7 @@ class VerifyActivity : Activity() {
         if (decided) return
         decided = true
         job?.cancel()
-        val url = urlOverride ?: NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty())
+        val url = urlOverride ?: activeUrl.ifBlank { NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty()) }
         InterceptController.cancelClassify(url)
         if (mark) InterceptController.markNotNews(url) else InterceptController.releaseDocumentHolds(url)
         if (url.isNotBlank()) {
@@ -174,8 +182,9 @@ class VerifyActivity : Activity() {
 
     override fun onDestroy() {
         job?.cancel()
+        scope.cancel()
         if (!decided && !isChangingConfigurations) {
-            val url = NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty())
+            val url = activeUrl.ifBlank { NewsHosts.unwrapUrl(intent.getStringExtra(EXTRA_URL).orEmpty()) }
             if (url.isNotBlank()) {
                 InterceptController.cancelClassify(url)
                 InterceptController.releaseDocumentHolds(url)

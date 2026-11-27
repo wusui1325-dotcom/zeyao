@@ -7,6 +7,7 @@ import android.content.Intent
 import android.widget.Toast
 import android.os.Build
 import android.os.Bundle
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -142,8 +143,6 @@ class MainActivity : FragmentActivity() {
                             vpnReady = SystemChecks.isVpnPrepared(this@MainActivity)
                             accessibilityOn = SystemChecks.isAccessibilityEnabled(this@MainActivity)
                             isDefaultBrowser = BrowserHandoff.isZeyaoDefaultBrowser(this@MainActivity)
-                            caInstalled = runCatching { LocalCa.isInstalled(this@MainActivity) }.getOrDefault(false)
-                            InterceptController.refreshCaInstalled()
                             resumeTick++
                         }
                     }
@@ -161,6 +160,14 @@ class MainActivity : FragmentActivity() {
             LaunchedEffect(resumeTick) {
                 vpnReady = SystemChecks.isVpnPrepared(this@MainActivity)
                 accessibilityOn = SystemChecks.isAccessibilityEnabled(this@MainActivity)
+                if (settings.httpsDecryptEnabled || route == Route.SETTINGS) {
+                    caInstalled = withContext(Dispatchers.IO) {
+                        runCatching {
+                            InterceptController.refreshCaInstalled()
+                            InterceptController.caInstalledCached
+                        }.getOrDefault(false)
+                    }
+                }
                 if (lockReady && settings.biometricUnlockEnabled && unlocked && !launchedExternal) {
                     if (pausedAtElapsed > 0L &&
                         SystemClock.elapsedRealtime() - pausedAtElapsed > 60_000L
@@ -178,6 +185,19 @@ class MainActivity : FragmentActivity() {
                 accent = Color(settings.accentColor),
             ) {
                 Surface(Modifier.fillMaxSize()) {
+                    BackHandler(
+                        enabled = lockReady && (!showLock || unlocked) &&
+                            (route != Route.MAIN && (route != Route.RECONFIGURE || settings.onboarded)),
+                    ) {
+                        when (route) {
+                            Route.MODEL_PARAMS -> route = Route.OTHER
+                            Route.RECORD -> {
+                                openedRecord = null
+                                route = Route.MAIN
+                            }
+                            else -> route = Route.MAIN
+                        }
+                    }
                     if (!lockReady) {
                         // Wait for stored biometric setting so the home list is not flashed.
                     } else if (showLock && !unlocked) {

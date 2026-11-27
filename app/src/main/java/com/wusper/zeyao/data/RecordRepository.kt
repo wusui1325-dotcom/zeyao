@@ -5,6 +5,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,7 +31,7 @@ class RecordRepository(context: Context) {
     @Volatile
     private var loaded = false
     private var persistJob: Job? = null
-    private var writeGen = 0
+    private val writeGen = AtomicInteger(0)
 
     init {
         scope.launch { ensureLoaded() }
@@ -126,7 +127,7 @@ class RecordRepository(context: Context) {
     private fun persistLocked(list: List<SummaryRecord>, flush: Boolean) {
         val sorted = sortRecords(list)
         _records.value = sorted
-        val gen = ++writeGen
+        val gen = writeGen.incrementAndGet()
         persistJob?.cancel()
         persistJob = scope.launch {
             if (!flush) delay(DEBOUNCE_MS)
@@ -142,7 +143,7 @@ class RecordRepository(context: Context) {
 
     private suspend fun writeIfLatest(list: List<SummaryRecord>, gen: Int) {
         writeMutex.withLock {
-            if (gen < writeGen) return
+            if (gen < writeGen.get()) return
             withContext(Dispatchers.IO + NonCancellable) {
                 val arr = JSONArray()
                 list.forEach { r ->

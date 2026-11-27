@@ -5,11 +5,14 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
+import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * xAI Grok OpenAI-compatible Chat Completions API.
@@ -28,7 +31,7 @@ class GrokClient : AiClient {
             .header("Authorization", "Bearer $apiKey")
             .get()
             .build()
-        HttpClients.init.newCall(request).execute().use { response ->
+        HttpClients.init.newCall(request).await().use { response ->
             if (!response.isSuccessful) {
                 throw AiInitException(friendlyHttpError(response.code, "xAI Grok"))
             }
@@ -44,25 +47,35 @@ class GrokClient : AiClient {
         params: GenerationParams,
     ): Flow<String> = callbackFlow {
         val models = AiProvider.fallbackList(AiProvider.GROK, params.fallbackModels)
+        val activeCall = AtomicReference<Call?>(null)
+        val cancelled = AtomicBoolean(false)
         val worker = Thread({
             var lastError: Exception? = null
             for ((index, model) in models.withIndex()) {
+                if (cancelled.get()) break
                 try {
-                    streamOnce(apiKey, title, url, articleText, params, model) { trySend(it) }
+                    streamOnce(apiKey, title, url, articleText, params, model, activeCall) { trySend(it) }
                     lastError = null
                     break
                 } catch (e: Exception) {
+                    if (cancelled.get()) {
+                        lastError = null
+                        break
+                    }
                     lastError = e
-                    if (index == models.lastIndex) break
-                    if (e is AiInitException && e.message?.contains("找不到") == true) continue
-                    if (e is AiInitException && e.message?.contains("HTTP 4") == true && index < models.lastIndex) continue
-                    break
+                    val retryable = e is ModelUnavailable && index < models.lastIndex
+                    if (!retryable) break
                 }
             }
-            if (lastError != null) close(lastError) else close()
+            activeCall.set(null)
+            if (lastError != null && !cancelled.get()) close(lastError) else close()
         }, "grok-stream")
         worker.start()
-        awaitClose { worker.interrupt() }
+        awaitClose {
+            cancelled.set(true)
+            activeCall.getAndSet(null)?.cancel()
+            worker.interrupt()
+        }
     }
 
     private fun streamOnce(
@@ -72,6 +85,7 @@ class GrokClient : AiClient {
         articleText: String,
         params: GenerationParams,
         model: String,
+        activeCall: AtomicReference<Call?>,
         onDelta: (String) -> Unit,
     ) {
         val body = JSONObject()
@@ -93,7 +107,12 @@ class GrokClient : AiClient {
             .header("Content-Type", "application/json")
             .post(body.toRequestBody(JSON))
             .build()
-        HttpClients.stream.newCall(request).execute().use { response ->
+        val call = HttpClients.stream.newCall(request)
+        activeCall.set(call)
+        call.execute().use { response ->
+            if (response.code == 400 || response.code == 404) {
+                throw ModelUnavailable(friendlyHttpError(response.code, "xAI Grok"))
+            }
             if (!response.isSuccessful) {
                 throw AiInitException(friendlyHttpError(response.code, "xAI Grok"))
             }
@@ -103,6 +122,8 @@ class GrokClient : AiClient {
             }
         }
     }
+
+    private class ModelUnavailable(message: String) : AiInitException(message)
 
     private companion object {
         const val BASE = "https://api.x.ai/v1"

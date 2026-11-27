@@ -5,11 +5,14 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
+import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * DeepSeek official Chat Completions API.
@@ -33,7 +36,7 @@ class DeepSeekClient : AiClient {
             .header("Authorization", "Bearer $apiKey")
             .get()
             .build()
-        HttpClients.init.newCall(request).execute().use { response ->
+        HttpClients.init.newCall(request).await().use { response ->
             if (!response.isSuccessful) {
                 throw AiInitException(friendlyHttpError(response.code, "DeepSeek"))
             }
@@ -49,25 +52,37 @@ class DeepSeekClient : AiClient {
         params: GenerationParams,
     ): Flow<String> = callbackFlow {
         val models = AiProvider.fallbackList(AiProvider.DEEPSEEK, params.fallbackModels)
+        val activeCall = AtomicReference<Call?>(null)
+        val cancelled = AtomicBoolean(false)
         val worker = Thread({
             var lastError: Exception? = null
             for ((index, model) in models.withIndex()) {
+                if (cancelled.get()) break
                 try {
-                    streamOnce(apiKey, title, url, articleText, params, model) { delta ->
+                    streamOnce(apiKey, title, url, articleText, params, model, activeCall) { delta ->
                         trySend(delta)
                     }
                     lastError = null
                     break
                 } catch (e: Exception) {
+                    if (cancelled.get()) {
+                        lastError = null
+                        break
+                    }
                     lastError = e
                     val retryable = e is ModelUnavailable && index < models.lastIndex
                     if (!retryable) break
                 }
             }
-            if (lastError != null) close(lastError) else close()
+            activeCall.set(null)
+            if (lastError != null && !cancelled.get()) close(lastError) else close()
         }, "deepseek-stream")
         worker.start()
-        awaitClose { worker.interrupt() }
+        awaitClose {
+            cancelled.set(true)
+            activeCall.getAndSet(null)?.cancel()
+            worker.interrupt()
+        }
     }
 
     private fun streamOnce(
@@ -77,10 +92,11 @@ class DeepSeekClient : AiClient {
         articleText: String,
         params: GenerationParams,
         model: String,
+        activeCall: AtomicReference<Call?>,
         onDelta: (String) -> Unit,
     ) {
         val thinkingType = if (params.thinkingEnabled) "enabled" else "disabled"
-        val effort = when (val raw = params.effectiveReasoningEffort()) {
+        val effort = when (params.effectiveReasoningEffort()) {
             "low" -> "low"
             else -> "high" // DeepSeek documents low/high; map medium to high
         }
@@ -113,7 +129,9 @@ class DeepSeekClient : AiClient {
             .header("Content-Type", "application/json")
             .post(body.toRequestBody(JSON))
             .build()
-        HttpClients.stream.newCall(request).execute().use { response ->
+        val call = HttpClients.stream.newCall(request)
+        activeCall.set(call)
+        call.execute().use { response ->
             if (response.code == 400 || response.code == 404) {
                 throw ModelUnavailable()
             }

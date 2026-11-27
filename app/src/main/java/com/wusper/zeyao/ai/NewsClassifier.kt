@@ -1,5 +1,6 @@
 package com.wusper.zeyao.ai
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -57,12 +58,26 @@ object NewsClassifier {
                 val parsed = parseYesNo(raw)
                 if (parsed != null) return@withContext parsed
                 lastError = AiInitException("無法判斷是否為新聞")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: NonRetryableHttpException) {
+                throw AiInitException(e.message ?: "請求失敗")
             } catch (e: Exception) {
                 lastError = e
                 if (index == resolvedModels.lastIndex) break
             }
         }
         throw lastError ?: AiInitException("無法判斷是否為新聞")
+    }
+
+    private class NonRetryableHttpException(message: String) : Exception(message)
+
+    private fun throwHttpFailure(code: Int, vendor: String): Nothing {
+        val msg = friendlyHttpError(code, vendor)
+        if (code == 401 || code == 403 || code == 429) {
+            throw NonRetryableHttpException(msg)
+        }
+        throw AiInitException(msg)
     }
 
     internal fun flashModels(provider: AiProvider): List<String> = when (provider) {
@@ -128,7 +143,7 @@ object NewsClassifier {
             .build()
         client.newCall(request).await().use { response ->
             if (!response.isSuccessful) {
-                throw AiInitException(friendlyHttpError(response.code, provider.displayName))
+                throwHttpFailure(response.code, provider.displayName)
             }
             val json = JSONObject(response.body?.string().orEmpty())
             val choices = json.optJSONArray("choices") ?: return ""
@@ -176,7 +191,7 @@ object NewsClassifier {
             .build()
         client.newCall(request).await().use { response ->
             if (!response.isSuccessful) {
-                throw AiInitException(friendlyHttpError(response.code, "Google Gemini"))
+                throwHttpFailure(response.code, "Google Gemini")
             }
             val obj = JSONObject(response.body?.string().orEmpty())
             val candidates = obj.optJSONArray("candidates") ?: return ""
@@ -221,7 +236,7 @@ object NewsClassifier {
             .build()
         client.newCall(request).await().use { response ->
             if (!response.isSuccessful) {
-                throw AiInitException(friendlyHttpError(response.code, "Anthropic Claude"))
+                throwHttpFailure(response.code, "Anthropic Claude")
             }
             val obj = JSONObject(response.body?.string().orEmpty())
             val content = obj.optJSONArray("content") ?: return ""

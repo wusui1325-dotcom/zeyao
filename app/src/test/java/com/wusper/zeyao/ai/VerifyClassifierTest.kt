@@ -58,6 +58,40 @@ class VerifyClassifierTest {
             }
         }
     }
+
+    @Test
+    fun timeout_failsOpenInsteadOfThrowingCancellation() {
+        runBlocking {
+            val server = MockWebServer()
+            server.enqueue(
+                okhttp3.mockwebserver.MockResponse()
+                    .setBody("{\"choices\":[{\"message\":{\"content\":\"YES\"}}]}")
+                    .setBodyDelay(5, java.util.concurrent.TimeUnit.SECONDS),
+            )
+            server.start()
+            try {
+                val client = okhttp3.OkHttpClient.Builder()
+                    .addInterceptor { chain ->
+                        val req = chain.request().newBuilder()
+                            .url(server.url("/chat/completions"))
+                            .build()
+                        chain.proceed(req)
+                    }
+                    .build()
+                val result = VerifyClassifier.run(
+                    url = "https://example.com/slow-timeout-test-article",
+                    title = "slow",
+                    settings = AppSettings(providerId = "openai"),
+                    apiKey = "sk-test",
+                    client = client,
+                    timeoutMs = 120L,
+                )
+                assertNull(result)
+            } finally {
+                server.shutdown()
+            }
+        }
+    }
 }
 
 private fun MockWebServer.toClient(): okhttp3.OkHttpClient =

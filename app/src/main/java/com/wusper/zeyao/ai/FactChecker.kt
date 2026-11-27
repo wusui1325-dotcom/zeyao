@@ -42,7 +42,7 @@ object FactChecker {
         }
     }
 
-    private fun extractFacts(
+    private suspend fun extractFacts(
         apiKey: String,
         providerId: String,
         model: String,
@@ -88,7 +88,7 @@ object FactChecker {
         }
     }
 
-    private fun callChat(
+    private suspend fun callChat(
         apiKey: String,
         providerId: String,
         model: String,
@@ -119,7 +119,7 @@ object FactChecker {
             .post(body.toRequestBody(JSON))
             .build()
         return runCatching {
-            HttpClients.init.newCall(request).execute().use { response ->
+            HttpClients.init.newCall(request).await().use { response ->
                 if (!response.isSuccessful) return@use null
                 val text = response.body?.string().orEmpty()
                 val obj = JSONObject(text)

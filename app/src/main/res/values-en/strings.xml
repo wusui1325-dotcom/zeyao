@@ -260,8 +260,8 @@
     <string name="filter_failed">Failed</string>
     <string name="regenerate_summary">Regenerate</string>
     <string name="biometric_lock">Biometric lock</string>
-    <string name="biometric_lock_hint">Off by default. When on, opening the 擇要 home screen requires your fingerprint, face, or device unlock. The verify float and summary page stay unblocked.</string>
-    <string name="biometric_unlock">Unlock 擇要</string>
+    <string name="biometric_lock_hint">Off by default. When on, opening the Zeyao home screen requires your fingerprint, face, or device unlock. The verify float and summary page stay unblocked.</string>
+    <string name="biometric_unlock">Unlock Zeyao</string>
     <string name="biometric_unlock_hint">Use your fingerprint, face, or device unlock to continue.</string>
     <string name="biometric_retry">Try again</string>
     <string name="biometric_unavailable">This device has no biometric or screen lock available, so this cannot be turned on.</string>
@@ -269,5 +269,8 @@
     <string name="cd_pin">Pin this record</string>
     <string name="cd_unpin">Unpin this record</string>
     <string name="cd_delete">Delete this record</string>
+    <string name="paste">Paste</string>
+    <string name="search_apps">Search apps</string>
+    <string name="clear_search">Clear search</string>
 </resources>
 

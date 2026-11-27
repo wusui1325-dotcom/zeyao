@@ -7,6 +7,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import org.jsoup.Jsoup
 
 /**
  * DeepSeek Search API (POST /v1/tools/search).
@@ -50,7 +51,7 @@ object DeepSeekSearch {
         searchWithFallback(apiKey, query, fallback, count)
     }
 
-    private fun extractKeywords(
+    private suspend fun extractKeywords(
         apiKey: String,
         title: String,
         url: String,
@@ -86,7 +87,7 @@ object DeepSeekSearch {
             .post(body.toRequestBody(JSON))
             .build()
         return runCatching {
-            HttpClients.init.newCall(request).execute().use { response ->
+            HttpClients.init.newCall(request).await().use { response ->
                 if (!response.isSuccessful) return@use ""
                 val text = response.body?.string().orEmpty()
                 val obj = JSONObject(text)
@@ -116,7 +117,7 @@ object DeepSeekSearch {
             .post(body.toRequestBody(JSON))
             .build()
         runCatching {
-            HttpClients.init.newCall(request).execute().use { response ->
+            HttpClients.init.newCall(request).await().use { response ->
                 if (!response.isSuccessful) return@use emptyList()
                 val text = response.body?.string().orEmpty()
                 parse(text)
@@ -171,7 +172,7 @@ object DeepSeekSearch {
             .get()
             .build()
         runCatching {
-            HttpClients.init.newCall(request).execute().use { response ->
+            HttpClients.init.newCall(request).await().use { response ->
                 if (!response.isSuccessful) return@use emptyList()
                 parseDuck(response.body?.string().orEmpty(), count)
             }
@@ -198,5 +199,5 @@ object DeepSeekSearch {
     }
 
     private fun clean(raw: String): String =
-        raw.replace(Regex("<[^>]+>"), "").replace("&", "&").trim()
+        Jsoup.parse(raw).text().trim()
 }

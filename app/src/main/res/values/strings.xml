@@ -277,5 +277,8 @@
     <string name="cd_pin">釘選這則紀錄</string>
     <string name="cd_unpin">取消釘選這則紀錄</string>
     <string name="cd_delete">刪除這則紀錄</string>
+    <string name="paste">貼上</string>
+    <string name="search_apps">搜尋 App</string>
+    <string name="clear_search">清除搜尋</string>
 </resources>
 

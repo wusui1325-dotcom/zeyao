@@ -49,6 +49,7 @@ import com.wusper.zeyao.data.ModelRoleSettings
 import com.wusper.zeyao.ui.components.SectionLabel
 import com.wusper.zeyao.ui.components.TopAction
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun ModelParamsScreen(
@@ -266,13 +267,13 @@ private fun RoleSection(
     )
     var intensityValue by remember(intensity) { mutableFloatStateOf(intensity) }
     Text(
-        stringResource(R.string.intensity_label, intensityValue.toInt()),
+        stringResource(R.string.intensity_label, intensityValue.roundToInt()),
         style = MaterialTheme.typography.bodyMedium,
     )
     Slider(
         value = intensityValue,
         onValueChange = { intensityValue = it },
-        onValueChangeFinished = { onIntensitySave(intensityValue.toInt()) },
+        onValueChangeFinished = { onIntensitySave(intensityValue.roundToInt()) },
         valueRange = 1f..5f,
         steps = 3,
     )

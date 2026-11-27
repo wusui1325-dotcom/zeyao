@@ -1,11 +1,12 @@
 package com.wusper.zeyao.ui.intercept
 
 import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -17,13 +18,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,10 +33,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.dp
 import com.wusper.zeyao.R
 import com.wusper.zeyao.data.EnterButtonPosition
 import com.wusper.zeyao.intercept.InterceptSession
@@ -53,6 +57,8 @@ fun InterceptScreen(
     onRetry: () -> Unit,
     onToggleSearch: (Boolean) -> Unit,
     onCopy: () -> Unit,
+    onShare: () -> Unit,
+    onOpenSourceUrl: (String) -> Unit,
     onSkipSite: () -> Unit,
     onFontSmaller: () -> Unit,
     onFontLarger: () -> Unit,
@@ -95,7 +101,17 @@ fun InterceptScreen(
                 color = MaterialTheme.colorScheme.primary,
             )
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(12.dp))
+        if (session.streaming) {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp),
+            )
+            Spacer(Modifier.height(10.dp))
+        } else {
+            Spacer(Modifier.height(8.dp))
+        }
         Box(
             Modifier
                 .weight(1f)
@@ -108,10 +124,12 @@ fun InterceptScreen(
                     session.summary.isBlank() && session.streaming -> stringResource(R.string.extracting_wait)
                     else -> session.summary
                 }
-                Text(
-                    text = body,
-                    style = bodyStyle,
-                )
+                SelectionContainer {
+                    Text(
+                        text = body,
+                        style = bodyStyle,
+                    )
+                }
                 if (session.error != null && session.summary.isNotBlank()) {
                     Spacer(Modifier.height(16.dp))
                     Text(
@@ -133,6 +151,7 @@ fun InterceptScreen(
             SmallAction(stringResource(R.string.retry), onRetry)
             if (session.summary.isNotBlank()) {
                 SmallAction(stringResource(R.string.copy), onCopy)
+                SmallAction(stringResource(R.string.share), onShare)
             }
             SmallAction(stringResource(R.string.font_smaller), onFontSmaller)
             SmallAction(stringResource(R.string.font_larger), onFontLarger)
@@ -164,7 +183,15 @@ fun InterceptScreen(
                     session.sources.forEachIndexed { i, s ->
                         Text("${i + 1}. [${s.query}] ${s.title}", style = MaterialTheme.typography.bodyMedium)
                         if (s.url.isNotBlank()) {
-                            Text(s.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                s.url,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                textDecoration = TextDecoration.Underline,
+                                modifier = Modifier
+                                    .clickable { onOpenSourceUrl(s.url) }
+                                    .padding(vertical = 2.dp),
+                            )
                         }
                         if (s.snippet.isNotBlank()) {
                             Text(s.snippet.take(180), style = MaterialTheme.typography.bodySmall)

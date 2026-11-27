@@ -5,11 +5,14 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
+import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * OpenAI Chat Completions API.
@@ -31,7 +34,7 @@ class OpenAiClient : AiClient {
             .header("Authorization", "Bearer $apiKey")
             .get()
             .build()
-        HttpClients.init.newCall(request).execute().use { response ->
+        HttpClients.init.newCall(request).await().use { response ->
             if (!response.isSuccessful) {
                 throw AiInitException(friendlyHttpError(response.code, "OpenAI"))
             }
@@ -47,9 +50,12 @@ class OpenAiClient : AiClient {
         params: GenerationParams,
     ): Flow<String> = callbackFlow {
         val models = AiProvider.fallbackList(AiProvider.OPENAI, params.fallbackModels)
+        val activeCall = AtomicReference<Call?>(null)
+        val cancelled = AtomicBoolean(false)
         val worker = Thread({
             var lastError: Exception? = null
-            for (model in models) {
+            for ((index, model) in models.withIndex()) {
+                if (cancelled.get()) break
                 try {
                     val body = JSONObject()
                         .put("model", model)
@@ -70,11 +76,13 @@ class OpenAiClient : AiClient {
                         .header("Content-Type", "application/json")
                         .post(body.toRequestBody(JSON))
                         .build()
+                    val call = HttpClients.stream.newCall(request)
+                    activeCall.set(call)
                     var shouldContinue = false
-                    HttpClients.stream.newCall(request).execute().use { response ->
+                    call.execute().use { response ->
                         if (response.code == 404 || response.code == 400) {
                             lastError = AiInitException(friendlyHttpError(response.code, "OpenAI"))
-                            shouldContinue = true
+                            shouldContinue = index < models.lastIndex
                         } else if (!response.isSuccessful) {
                             throw AiInitException(friendlyHttpError(response.code, "OpenAI"))
                         } else {
@@ -88,13 +96,23 @@ class OpenAiClient : AiClient {
                     lastError = null
                     break
                 } catch (e: Exception) {
+                    if (cancelled.get()) {
+                        lastError = null
+                        break
+                    }
                     lastError = e
+                    break
                 }
             }
-            if (lastError != null) close(lastError) else close()
+            activeCall.set(null)
+            if (lastError != null && !cancelled.get()) close(lastError) else close()
         }, "openai-stream")
         worker.start()
-        awaitClose { worker.interrupt() }
+        awaitClose {
+            cancelled.set(true)
+            activeCall.getAndSet(null)?.cancel()
+            worker.interrupt()
+        }
     }
 
     private companion object {
