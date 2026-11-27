@@ -89,7 +89,7 @@ class ClaudeClient : AiClient {
                 }
             }
             activeCall.set(null)
-            if (lastError != null && !cancelled.get()) close(lastError) else close()
+            if (lastError != null && !cancelled.get()) close(if (lastError is ModelUnavailable) AiInitException(lastError.message.orEmpty()) else lastError) else close()
         }, "claude-stream")
         worker.start()
         awaitClose {
@@ -145,7 +145,7 @@ class ClaudeClient : AiClient {
         }
     }
 
-    private class ModelUnavailable(message: String) : AiInitException(message)
+    private class ModelUnavailable(message: String) : Exception(message)
 
     private fun extractClaudeDelta(data: String): String = runCatching {
         val obj = JSONObject(data)

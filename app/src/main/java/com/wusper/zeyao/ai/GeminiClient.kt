@@ -71,7 +71,7 @@ class GeminiClient : AiClient {
                 }
             }
             activeCall.set(null)
-            if (lastError != null && !cancelled.get()) close(lastError) else close()
+            if (lastError != null && !cancelled.get()) close(if (lastError is ModelUnavailable) AiInitException(lastError.message.orEmpty()) else lastError) else close()
         }, "gemini-stream")
         worker.start()
         awaitClose {
@@ -141,7 +141,7 @@ class GeminiClient : AiClient {
         }
     }
 
-    private class ModelUnavailable(message: String) : AiInitException(message)
+    private class ModelUnavailable(message: String) : Exception(message)
 
     private fun extractGeminiDelta(data: String): String = runCatching {
         val obj = JSONObject(data)

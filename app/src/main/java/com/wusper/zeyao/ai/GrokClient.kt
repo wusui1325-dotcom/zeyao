@@ -68,7 +68,7 @@ class GrokClient : AiClient {
                 }
             }
             activeCall.set(null)
-            if (lastError != null && !cancelled.get()) close(lastError) else close()
+            if (lastError != null && !cancelled.get()) close(if (lastError is ModelUnavailable) AiInitException(lastError.message.orEmpty()) else lastError) else close()
         }, "grok-stream")
         worker.start()
         awaitClose {
@@ -123,7 +123,7 @@ class GrokClient : AiClient {
         }
     }
 
-    private class ModelUnavailable(message: String) : AiInitException(message)
+    private class ModelUnavailable(message: String) : Exception(message)
 
     private companion object {
         const val BASE = "https://api.x.ai/v1"
